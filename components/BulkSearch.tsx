@@ -549,7 +549,8 @@ export default function BulkSearch() {
               />
             </nav>
 
-            <div className="mt-7 px-2 text-xs font-semibold uppercase tracking-wide text-white/40">
+            <div className="mt-5 border-t border-white/10" />
+            <div className="mt-5 px-2 text-xs font-semibold uppercase tracking-wide text-white/40">
               Filters
             </div>
             <input
@@ -734,20 +735,40 @@ export default function BulkSearch() {
                 ))}
             </nav>
 
-            <div className="mt-auto space-y-1.5 pt-8">
-              <button
-                onClick={copyAvailable}
-                disabled={counts.available === 0}
-                className="w-full rounded-lg border border-white/15 px-3 py-1.5 text-left text-sm text-white/80 hover:bg-white/10 disabled:opacity-40"
-              >
-                {copied ? "Copied ✓" : "Copy available"}
-              </button>
-              <button
-                onClick={exportCsv}
-                className="w-full rounded-lg border border-white/15 px-3 py-1.5 text-left text-sm text-white/80 hover:bg-white/10"
-              >
-                Export results
-              </button>
+            <div className="mt-auto pt-6">
+              <div className="border-t border-white/10" />
+              <nav className="mt-3 space-y-0.5">
+                <FilterRow
+                  label={copied ? "Copied" : "Copy available"}
+                  active={copied}
+                  disabled={counts.available === 0}
+                  onClick={copyAvailable}
+                  icon={
+                    copied ? (
+                      <svg {...FILTER_ICON_PROPS} aria-hidden="true">
+                        <path d="M20 6 9 17l-5-5" />
+                      </svg>
+                    ) : (
+                      <svg {...FILTER_ICON_PROPS} aria-hidden="true">
+                        <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
+                        <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
+                      </svg>
+                    )
+                  }
+                />
+                <FilterRow
+                  label="Export results"
+                  active={false}
+                  onClick={exportCsv}
+                  icon={
+                    <svg {...FILTER_ICON_PROPS} aria-hidden="true">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                      <polyline points="7 10 12 15 17 10" />
+                      <line x1="12" x2="12" y1="15" y2="3" />
+                    </svg>
+                  }
+                />
+              </nav>
             </div>
           </aside>
 
@@ -1069,18 +1090,21 @@ function FilterRow({
   label,
   active,
   badge,
+  disabled,
   onClick,
 }: {
   icon: React.ReactNode;
   label: string;
   active: boolean;
   badge?: number;
+  disabled?: boolean;
   onClick: () => void;
 }) {
   return (
     <button
       onClick={onClick}
-      className={`flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left text-sm transition-colors hover:bg-white/5 ${
+      disabled={disabled}
+      className={`flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left text-sm transition-colors hover:bg-white/5 disabled:opacity-40 disabled:hover:bg-transparent ${
         active ? "text-white" : "text-white/70 hover:text-white"
       }`}
     >
