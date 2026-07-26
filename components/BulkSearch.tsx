@@ -537,8 +537,14 @@ export default function BulkSearch() {
             onKeyDown={(e) => {
               if (e.key === "Enter") {
                 e.preventDefault();
-                commitDraft("enter");
-                openResults();
+                // Enter just commits the typed name as a chip. Only an Enter on
+                // an empty field (nothing left to add) opens the results page,
+                // the same as pressing the arrow button.
+                if (draft.trim()) {
+                  commitDraft("enter");
+                } else if (domains.length > 0) {
+                  openResults();
+                }
               } else if (e.key === "Backspace" && draft === "" && domains.length > 0) {
                 removeDomain(domains[domains.length - 1]);
               }
