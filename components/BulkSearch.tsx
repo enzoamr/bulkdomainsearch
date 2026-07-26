@@ -322,7 +322,7 @@ export default function BulkSearch() {
   return (
     <div className="w-full max-w-4xl mx-auto px-4">
       {/* Chip input card */}
-      <div className="rounded-2xl border border-line bg-surface shadow-sm overflow-hidden transition focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/40">
+      <div className="rounded-2xl border-2 border-line bg-surface shadow-sm overflow-hidden transition-colors focus-within:border-accent">
         <div
           className="flex min-h-32 cursor-text flex-wrap content-start items-start gap-2 px-3 py-3"
           onClick={() => inputRef.current?.focus()}
