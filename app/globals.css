@@ -154,28 +154,6 @@ body {
   animation: demo-thumb 7s ease-in-out infinite;
 }
 
-@keyframes demo-scan {
-  0%,
-  8% {
-    transform: translateY(0);
-    opacity: 0;
-  }
-  12% {
-    opacity: 1;
-  }
-  88% {
-    opacity: 1;
-  }
-  92%,
-  100% {
-    transform: translateY(500%);
-    opacity: 0;
-  }
-}
-.demo-scan {
-  animation: demo-scan 8s ease-in-out infinite;
-}
-
 @media (prefers-reduced-motion: reduce) {
   .reveal {
     opacity: 1;
@@ -184,8 +162,7 @@ body {
   }
   .demo-row,
   .demo-blink,
-  .demo-thumb,
-  .demo-scan {
+  .demo-thumb {
     animation: none;
   }
   .demo-row {

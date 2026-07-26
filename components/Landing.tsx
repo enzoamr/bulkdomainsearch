@@ -623,14 +623,16 @@ function HowItWorks() {
           className="reveal flex items-center"
           style={{ transitionDelay: "120ms" }}
         >
-          <div className="w-full rounded-2xl border border-line bg-gradient-to-br from-surface to-background p-5">
-            <div className="flex items-center justify-between text-xs text-ink-3">
-              <span className="font-mono font-medium uppercase tracking-[1px]">
-                Bulk search preview
-              </span>
+          <div className="w-full rounded-2xl border border-line bg-gradient-to-br from-surface to-background px-6 py-5">
+            <p className="text-base font-medium leading-6 text-ink">
+              Bulk search preview
+            </p>
+            <div className="mt-4 flex items-center gap-2 text-sm leading-5 text-ink-3">
+              <Icon name="list-filter" className="size-4 shrink-0" />
+              <span className="flex-1">Sort</span>
               <span className="tabular-nums">6 of 1,248 results</span>
             </div>
-            <div className="relative mt-4 space-y-1 font-mono text-xs">
+            <div className="mt-3 space-y-1 font-mono text-xs">
               {(
                 [
                   ["madeyoulook.com", "bg-bad", "Lookup", "text-bad-text"],
@@ -652,10 +654,6 @@ function HowItWorks() {
                   </span>
                 </div>
               ))}
-              <div
-                aria-hidden="true"
-                className="demo-scan pointer-events-none absolute inset-x-0 top-0 h-7 rounded-md bg-accent/10"
-              />
             </div>
             <div className="mt-4 flex items-center justify-center gap-1.5 border-t border-line pt-4 font-sans text-xs text-ink-3">
               <Icon name="hard-drive-download" className="size-4 shrink-0" />
