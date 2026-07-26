@@ -61,6 +61,10 @@ export default function BulkSearch() {
   const [verifying, setVerifying] = useState<Set<string>>(new Set());
   const [copied, setCopied] = useState(false);
   const [view, setView] = useState<"compose" | "results">("compose");
+  const [tldFilter, setTldFilter] = useState<Set<string>>(new Set());
+  const [priceMin, setPriceMin] = useState("");
+  const [priceMax, setPriceMax] = useState("");
+  const [openPanel, setOpenPanel] = useState<"tlds" | "price" | null>(null);
 
   const domainsRef = useRef<string[]>([]);
   const controllersRef = useRef<Set<AbortController>>(new Set());
@@ -180,6 +184,12 @@ export default function BulkSearch() {
     setResults(new Map());
     setChecking(new Set());
     setDraft("");
+    setFilter("all");
+    setQuery("");
+    setTldFilter(new Set());
+    setPriceMin("");
+    setPriceMax("");
+    setOpenPanel(null);
   }, []);
 
   const stopChecking = useCallback(() => {
@@ -274,6 +284,26 @@ export default function BulkSearch() {
     };
   }, [view]);
 
+  // Extensions present in the current search, most frequent first — feeds the
+  // TLDs filter panel in the results sidebar.
+  const tldCounts = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const d of domains) {
+      const tld = d.slice(d.lastIndexOf(".") + 1);
+      m.set(tld, (m.get(tld) ?? 0) + 1);
+    }
+    return [...m.entries()].sort((a, b) => b[1] - a[1]);
+  }, [domains]);
+
+  const priceBounds = useMemo(() => {
+    const min = parseFloat(priceMin);
+    const max = parseFloat(priceMax);
+    return {
+      min: Number.isNaN(min) ? null : min,
+      max: Number.isNaN(max) ? null : max,
+    };
+  }, [priceMin, priceMax]);
+
   const visible = useMemo(() => {
     let list = [...results.values()];
     if (filter !== "all") list = list.filter((r) => r.status === filter);
@@ -281,18 +311,44 @@ export default function BulkSearch() {
       const q = query.trim().toLowerCase();
       list = list.filter((r) => r.domain.includes(q));
     }
+    if (tldFilter.size > 0) {
+      list = list.filter((r) =>
+        tldFilter.has(r.domain.slice(r.domain.lastIndexOf(".") + 1)),
+      );
+    }
+    if (priceBounds.min != null || priceBounds.max != null) {
+      // A price range only makes sense for priced aftermarket listings.
+      list = list.filter(
+        (r) =>
+          r.listing?.price != null &&
+          (priceBounds.min == null || r.listing.price >= priceBounds.min) &&
+          (priceBounds.max == null || r.listing.price <= priceBounds.max),
+      );
+    }
     if (sortBy === "az") list.sort((a, b) => a.domain.localeCompare(b.domain));
     if (sortBy === "len") list.sort((a, b) => a.domain.length - b.domain.length);
     return list;
-  }, [results, filter, query, sortBy]);
+  }, [results, filter, query, sortBy, tldFilter, priceBounds]);
 
-  // Domains still awaiting a verdict — rendered as skeleton cards in the grid
+  // Domains still awaiting a verdict — rendered as skeleton rows in the grid
   // so the results page fills top-to-bottom as answers stream in (like IDS).
   const pending = useMemo(() => {
     if (filter !== "all") return [];
+    // A pending domain has no listing yet, so it can't match a price range.
+    if (priceBounds.min != null || priceBounds.max != null) return [];
     const q = query.trim().toLowerCase();
-    return domains.filter((d) => !results.has(d) && (!q || d.includes(q)));
-  }, [domains, results, filter, query]);
+    return domains.filter((d) => {
+      if (results.has(d)) return false;
+      if (q && !d.includes(q)) return false;
+      if (
+        tldFilter.size > 0 &&
+        !tldFilter.has(d.slice(d.lastIndexOf(".") + 1))
+      ) {
+        return false;
+      }
+      return true;
+    });
+  }, [domains, results, filter, query, tldFilter, priceBounds]);
 
   const shown = showAll ? visible : visible.slice(0, VISIBLE_LIMIT);
   const shownPending = showAll
@@ -453,15 +509,138 @@ export default function BulkSearch() {
               placeholder="Filter results…"
               className="mt-2 w-full rounded-lg border border-white/15 bg-transparent px-3 py-1.5 text-sm text-white placeholder:text-white/35 focus:border-accent focus:outline-none"
             />
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as SortBy)}
-              className="mt-2 w-full rounded-lg border border-white/15 bg-[#0b0b0b] px-2 py-1.5 text-sm text-white/80 focus:outline-none"
-            >
-              <option value="order">Sort: as checked</option>
-              <option value="az">Sort: A → Z</option>
-              <option value="len">Sort: shortest first</option>
-            </select>
+            <nav className="mt-2 space-y-0.5">
+              <FilterRow
+                label="TLDs"
+                active={tldFilter.size > 0}
+                badge={tldFilter.size > 0 ? tldFilter.size : undefined}
+                onClick={() =>
+                  setOpenPanel((p) => (p === "tlds" ? null : "tlds"))
+                }
+                icon={
+                  <svg {...FILTER_ICON_PROPS} aria-hidden="true">
+                    <path d="M5 3a2 2 0 0 0-2 2" />
+                    <path d="M19 3a2 2 0 0 1 2 2" />
+                    <path d="M21 19a2 2 0 0 1-2 2" />
+                    <path d="M5 21a2 2 0 0 1-2-2" />
+                    <path d="M9 3h1" />
+                    <path d="M9 21h1" />
+                    <path d="M14 3h1" />
+                    <path d="M14 21h1" />
+                    <path d="M3 9v1" />
+                    <path d="M21 9v1" />
+                    <path d="M3 14v1" />
+                    <path d="M21 14v1" />
+                  </svg>
+                }
+              />
+              {openPanel === "tlds" && (
+                <div className="ml-9 space-y-0.5 py-1 pr-2">
+                  {tldCounts.map(([tld, n]) => (
+                    <button
+                      key={tld}
+                      onClick={() =>
+                        setTldFilter((prev) => {
+                          const next = new Set(prev);
+                          if (next.has(tld)) next.delete(tld);
+                          else next.add(tld);
+                          return next;
+                        })
+                      }
+                      className={`flex w-full items-center gap-2 rounded-md px-2 py-1 text-left text-sm transition-colors ${
+                        tldFilter.has(tld)
+                          ? "bg-white/10 text-white"
+                          : "text-white/60 hover:bg-white/5 hover:text-white"
+                      }`}
+                    >
+                      <span className="flex-1 font-mono">.{tld}</span>
+                      <span className="text-xs tabular-nums text-white/40">
+                        {n.toLocaleString()}
+                      </span>
+                    </button>
+                  ))}
+                  {tldFilter.size > 0 && (
+                    <button
+                      onClick={() => setTldFilter(new Set())}
+                      className="w-full rounded-md px-2 py-1 text-left text-xs text-white/40 hover:text-white"
+                    >
+                      Reset
+                    </button>
+                  )}
+                </div>
+              )}
+              <FilterRow
+                label="Sort A-Z"
+                active={sortBy === "az"}
+                onClick={() => setSortBy((s) => (s === "az" ? "order" : "az"))}
+                icon={
+                  <svg {...FILTER_ICON_PROPS} aria-hidden="true">
+                    <path d="m3 16 4 4 4-4" />
+                    <path d="M7 20V4" />
+                    <path d="M20 8h-5" />
+                    <path d="M15 10V6.5a2.5 2.5 0 0 1 5 0V10" />
+                    <path d="M15 14h5l-5 6h5" />
+                  </svg>
+                }
+              />
+              <FilterRow
+                label="Sort by length"
+                active={sortBy === "len"}
+                onClick={() => setSortBy((s) => (s === "len" ? "order" : "len"))}
+                icon={
+                  <svg {...FILTER_ICON_PROPS} aria-hidden="true">
+                    <path d="m3 16 4 4 4-4" />
+                    <path d="M7 20V4" />
+                    <path d="M11 4h4" />
+                    <path d="M11 8h7" />
+                    <path d="M11 12h10" />
+                  </svg>
+                }
+              />
+              <FilterRow
+                label="Price range"
+                active={priceBounds.min != null || priceBounds.max != null}
+                onClick={() =>
+                  setOpenPanel((p) => (p === "price" ? null : "price"))
+                }
+                icon={
+                  <svg {...FILTER_ICON_PROPS} aria-hidden="true">
+                    <line x1="21" x2="14" y1="4" y2="4" />
+                    <line x1="10" x2="3" y1="4" y2="4" />
+                    <line x1="21" x2="12" y1="12" y2="12" />
+                    <line x1="8" x2="3" y1="12" y2="12" />
+                    <line x1="21" x2="16" y1="20" y2="20" />
+                    <line x1="12" x2="3" y1="20" y2="20" />
+                    <line x1="14" x2="14" y1="2" y2="6" />
+                    <line x1="8" x2="8" y1="10" y2="14" />
+                    <line x1="16" x2="16" y1="18" y2="22" />
+                  </svg>
+                }
+              />
+              {openPanel === "price" && (
+                <div className="ml-9 flex items-center gap-2 py-1 pr-2">
+                  <input
+                    value={priceMin}
+                    onChange={(e) =>
+                      setPriceMin(e.target.value.replace(/[^0-9]/g, ""))
+                    }
+                    inputMode="numeric"
+                    placeholder="Min $"
+                    className="w-full min-w-0 rounded-md border border-white/15 bg-transparent px-2 py-1 text-sm text-white placeholder:text-white/35 focus:border-accent focus:outline-none"
+                  />
+                  <span className="text-white/30">–</span>
+                  <input
+                    value={priceMax}
+                    onChange={(e) =>
+                      setPriceMax(e.target.value.replace(/[^0-9]/g, ""))
+                    }
+                    inputMode="numeric"
+                    placeholder="Max $"
+                    className="w-full min-w-0 rounded-md border border-white/15 bg-transparent px-2 py-1 text-sm text-white placeholder:text-white/35 focus:border-accent focus:outline-none"
+                  />
+                </div>
+              )}
+            </nav>
 
             <div className="mt-auto space-y-1.5 pt-8">
               <button
@@ -779,6 +958,48 @@ function DomainChip({
         </svg>
       </button>
     </span>
+  );
+}
+
+const FILTER_ICON_PROPS = {
+  width: 16,
+  height: 16,
+  viewBox: "0 0 24 24",
+  fill: "none",
+  stroke: "currentColor",
+  strokeWidth: 2,
+  strokeLinecap: "round",
+  strokeLinejoin: "round",
+} as const;
+
+function FilterRow({
+  icon,
+  label,
+  active,
+  badge,
+  onClick,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  active: boolean;
+  badge?: number;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left text-sm transition-colors hover:bg-white/5 ${
+        active ? "text-white" : "text-white/70 hover:text-white"
+      }`}
+    >
+      <span className={active ? "text-accent" : "text-white/50"}>{icon}</span>
+      <span className="flex-1">{label}</span>
+      {badge != null && (
+        <span className="rounded-full bg-accent/20 px-1.5 text-xs tabular-nums text-accent">
+          {badge}
+        </span>
+      )}
+    </button>
   );
 }
 
