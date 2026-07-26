@@ -101,7 +101,13 @@ async function main() {
   }
   if (batch.length > 0) await dispatch(batch);
   await Promise.all(inflight);
-  console.log(`\n${total.toLocaleString()} listings → Turso table 'listings'.`);
+  // The counter above is one INSERT per feed line; the table holds one row per
+  // domain (primary key), so duplicates across files collapse — report both.
+  const { rows } = await client.execute("SELECT COUNT(*) AS n FROM listings");
+  const unique = Number(rows[0].n);
+  console.log(
+    `\n${total.toLocaleString()} rows written → ${unique.toLocaleString()} unique domains in Turso table 'listings'.`,
+  );
 }
 
 main()
