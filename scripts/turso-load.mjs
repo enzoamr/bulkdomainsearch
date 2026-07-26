@@ -28,7 +28,11 @@ if (!url) {
 
 const client = createClient({ url, authToken: process.env.TURSO_AUTH_TOKEN });
 const DIR = path.join(process.cwd(), "data", "aftermarket");
-const BATCH = 500;
+// Bigger batches = fewer round trips; several in flight at once pipelines the
+// network latency to the remote DB (the real bottleneck). Sending 500 rows one
+// batch at a time over the Atlantic is what made the first run take ~20 min.
+const BATCH = 2000;
+const CONCURRENCY = 12;
 
 async function main() {
   await client.execute(
@@ -45,16 +49,31 @@ async function main() {
   }
 
   let total = 0;
-  let batch = [];
+  const inflight = new Set();
 
-  const flush = async () => {
-    if (batch.length === 0) return;
-    await client.batch(batch, "write");
-    total += batch.length;
-    batch = [];
-    process.stdout.write(`\r${total.toLocaleString()} rows loaded…`);
+  const runBatch = async (stmts) => {
+    for (let attempt = 1; ; attempt++) {
+      try {
+        await client.batch(stmts, "write");
+        total += stmts.length;
+        process.stdout.write(`\r${total.toLocaleString()} rows loaded…`);
+        return;
+      } catch (err) {
+        if (attempt >= 4) throw err;
+        await new Promise((r) => setTimeout(r, 300 * attempt));
+      }
+    }
   };
 
+  const dispatch = async (stmts) => {
+    const p = runBatch(stmts).finally(() => inflight.delete(p));
+    inflight.add(p);
+    // Keep at most CONCURRENCY batches in flight; the extra ones pipeline the
+    // network round trip while the DB commits the previous ones.
+    if (inflight.size >= CONCURRENCY) await Promise.race(inflight);
+  };
+
+  let batch = [];
   for (const file of files) {
     const rl = readline.createInterface({
       input: fs.createReadStream(path.join(DIR, file)),
@@ -74,10 +93,14 @@ async function main() {
         sql: "INSERT OR REPLACE INTO listings (domain, data) VALUES (?, ?)",
         args: [String(domain).toLowerCase(), JSON.stringify(listing)],
       });
-      if (batch.length >= BATCH) await flush();
+      if (batch.length >= BATCH) {
+        await dispatch(batch);
+        batch = [];
+      }
     }
   }
-  await flush();
+  if (batch.length > 0) await dispatch(batch);
+  await Promise.all(inflight);
   console.log(`\n${total.toLocaleString()} listings → Turso table 'listings'.`);
 }
 
