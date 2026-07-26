@@ -154,6 +154,20 @@ body {
   animation: demo-thumb 7s ease-in-out infinite;
 }
 
+/* White-on-transparent logos need inverting on light backgrounds; follows
+   the same theme resolution as the tokens (data-theme wins over system). */
+.logo-invert {
+  filter: invert(1);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .logo-invert {
+    filter: none;
+  }
+}
+:root[data-theme="dark"] .logo-invert {
+  filter: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .reveal {
     opacity: 1;

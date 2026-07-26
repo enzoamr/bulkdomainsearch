@@ -535,20 +535,30 @@ function Features() {
               <div className="flex w-full flex-col gap-2 sm:absolute sm:right-5 sm:w-[240px]">
                 {(
                   [
-                    ["N", "Namecheap", "$10.28", "bg-orange-500/15 text-orange-500"],
-                    ["P", "Porkbun", "$11.06", "bg-pink-500/15 text-pink-500"],
-                    ["D", "Dynadot", "$11.99", "bg-blue-500/15 text-blue-500"],
+                    ["/registrars/godaddy.svg", "GoDaddy", "$11.20", ""],
+                    [
+                      "/registrars/network-solutions.svg",
+                      "Network Solutions",
+                      "$11.99",
+                      "logo-invert",
+                    ],
+                    ["/registrars/domain.svg", "Domain.com", "$12.99", ""],
                   ] as const
-                ).map(([initial, name, price, badge]) => (
+                ).map(([src, name, price, extra]) => (
                   <div
                     key={name}
                     className="flex cursor-default items-center gap-2 rounded-lg border border-line bg-surface py-2 pl-3 pr-2 transition-colors hover:border-ink-3"
                   >
-                    <span
-                      className={`flex size-4 shrink-0 items-center justify-center rounded text-[9px] font-bold ${badge}`}
-                    >
-                      {initial}
-                    </span>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={src}
+                      alt=""
+                      width={20}
+                      height={20}
+                      loading="lazy"
+                      aria-hidden="true"
+                      className={`size-4 shrink-0 object-contain ${extra}`}
+                    />
                     <span className="flex-1 truncate text-sm text-ink-2">
                       {name}
                     </span>
@@ -558,11 +568,18 @@ function Features() {
                   </div>
                 ))}
                 <div className="flex cursor-default items-center gap-2 rounded-lg border border-line bg-surface py-2 pl-3 pr-2 opacity-60">
-                  <span className="flex size-4 shrink-0 items-center justify-center rounded bg-teal-500/15 text-[9px] font-bold text-teal-500">
-                    G
-                  </span>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src="/registrars/hostinger.svg"
+                    alt=""
+                    width={20}
+                    height={20}
+                    loading="lazy"
+                    aria-hidden="true"
+                    className="size-4 shrink-0 object-contain"
+                  />
                   <span className="flex-1 truncate text-sm text-ink-2">
-                    GoDaddy
+                    Hostinger
                   </span>
                 </div>
               </div>
