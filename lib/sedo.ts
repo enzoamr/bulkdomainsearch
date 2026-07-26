@@ -22,8 +22,12 @@ import type { Listing } from "./types";
 
 const PARTNER_ID = process.env.SEDO_PARTNER_ID;
 const SIGN_KEY = process.env.SEDO_SIGN_KEY;
+// Some Sedo accounts require the account login on DomainStatus too (faultcodes
+// E5/E6/E12 if missing); include it when set.
+const USERNAME = process.env.SEDO_USERNAME;
+const PASSWORD = process.env.SEDO_PASSWORD;
 const ENDPOINT =
-  process.env.SEDO_API_ENDPOINT || "https://api.sedo.com/api/sedointerface.php";
+  process.env.SEDO_API_ENDPOINT || "https://api.sedo.com/api/v1/DomainStatus";
 const TIMEOUT_MS = 6000;
 const MAX_INFLIGHT = 8;
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000; // listings/prices change slowly.
@@ -56,9 +60,12 @@ export async function sedoLookup(domain: string): Promise<Listing | null> {
       partnerid: PARTNER_ID!,
       signkey: SIGN_KEY!,
       output_method: "xml",
-      function: "DomainStatus",
       "domainlist[0]": domain,
     });
+    if (USERNAME && PASSWORD) {
+      params.set("username", USERNAME);
+      params.set("password", PASSWORD);
+    }
     const res = await fetch(`${ENDPOINT}?${params}`, {
       signal: AbortSignal.timeout(TIMEOUT_MS),
       cache: "no-store",
@@ -66,7 +73,8 @@ export async function sedoLookup(domain: string): Promise<Listing | null> {
     if (!res.ok) return null;
 
     const xml = await res.text();
-    const block = xml.match(/<item>([\s\S]*?)<\/item>/i)?.[1] ?? xml;
+    // Real items carry attributes: <item type="tns:DomainStatusResponse[]">.
+    const block = xml.match(/<item\b[^>]*>([\s\S]*?)<\/item>/i)?.[1] ?? xml;
     const forsale = pick(block, "forsale");
     if (!forsale || forsale === "0" || forsale.toLowerCase() === "false") {
       cache.set(domain, { at: Date.now(), listing: null });
@@ -75,7 +83,12 @@ export async function sedoLookup(domain: string): Promise<Listing | null> {
 
     const priceRaw = pick(block, "price");
     const price = priceRaw ? Number(priceRaw) : NaN;
-    const currency = CURRENCY_BY_CODE[pick(block, "currency") ?? "1"] ?? "USD";
+    // The XML response returns the currency as an ISO string ("EUR"/"USD"/
+    // "GBP"); older/code paths use the 0/1/2 request codes. Handle both.
+    const rawCurrency = pick(block, "currency");
+    const currency = rawCurrency
+      ? (CURRENCY_BY_CODE[rawCurrency] ?? rawCurrency.toUpperCase())
+      : "USD";
     const listing: Listing = {
       market: "sedo",
       price: Number.isFinite(price) && price > 0 ? price : null,

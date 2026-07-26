@@ -4,6 +4,9 @@ Bulk domain availability checker — paste up to 5,000 names or domains and
 watch results stream in live. Built on the same architecture Instant Domain
 Search describes in ["How we make it fast"](https://instantdomainsearch.com/learn/research/how-we-make-it-fast).
 
+> **What's left to do** (blue tier live on Vercel, affiliate signups, gold
+> tier, all with verified 2026 steps) lives in **[ROADMAP.md](./ROADMAP.md)**.
+
 ## Architecture
 
 Checks run through three tiers, fastest first (`lib/dns.ts`):
