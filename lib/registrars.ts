@@ -51,3 +51,12 @@ export const REGISTRARS: Registrar[] = DEFAULTS.map((r) => ({
 export function buyUrl(registrar: Registrar, domain: string): string {
   return registrar.template.replace("{domain}", encodeURIComponent(domain));
 }
+
+const WHOIS_TEMPLATE =
+  process.env.NEXT_PUBLIC_AFF_WHOIS ||
+  "https://www.godaddy.com/whois/results.aspx?domain={domain}";
+
+/** WHOIS destination for taken domains (affiliate-wrappable via env). */
+export function whoisUrl(domain: string): string {
+  return WHOIS_TEMPLATE.replace("{domain}", encodeURIComponent(domain));
+}

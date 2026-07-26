@@ -64,3 +64,11 @@ affiliation.
 - The .com zone is ~160M names (~16 GB RAM as a JS Set). Start with smaller
   TLDs, or swap the `Set` in `lib/zone-index.ts` for a bloom filter when you
   outgrow it.
+
+## Analytics
+
+Set `NEXT_PUBLIC_POSTHOG_KEY` (and optionally `NEXT_PUBLIC_POSTHOG_HOST`,
+default EU cloud) to enable PostHog. Captured events: `domains_added`,
+`domain_removed`, `check_completed`, `registrar_click` (with registrar,
+status and placement), `verify_clicked`, `export_csv`, `copy_available`,
+plus autocaptured pageviews and exceptions. No key → analytics fully off.

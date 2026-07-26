@@ -1,13 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 
-import { EXPANDABLE_TLDS, MAX_DOMAINS, parseInput } from "@/lib/domains";
-import { buyUrl, REGISTRARS } from "@/lib/registrars";
+import { track } from "@/lib/analytics";
+import { MAX_DOMAINS, parseInput } from "@/lib/domains";
+import { buyUrl, REGISTRARS, whoisUrl } from "@/lib/registrars";
 import type { CheckResult, DomainStatus } from "@/lib/types";
 
-const AUTO_CHECK_LIMIT = 250;
 const VISIBLE_LIMIT = 400;
+const CHIP_CAP = 100;
+// Bare names get this TLD silently — people who want another extension type it.
+const DEFAULT_TLDS = ["com"] as const;
 
 const EXAMPLE_INPUT = [
   "solarpunkstudio",
@@ -22,7 +25,6 @@ const EXAMPLE_INPUT = [
   "openvault.app",
 ].join("\n");
 
-type Phase = "idle" | "checking" | "done";
 type SortBy = "order" | "az" | "len";
 type Filter = "all" | DomainStatus;
 
@@ -36,11 +38,10 @@ const STATUS_META: Record<
 };
 
 export default function BulkSearch() {
-  const [input, setInput] = useState("");
-  const [tlds, setTlds] = useState<string[]>(["com"]);
+  const [domains, setDomains] = useState<string[]>([]);
+  const [draft, setDraft] = useState("");
   const [results, setResults] = useState<Map<string, CheckResult>>(new Map());
-  const [phase, setPhase] = useState<Phase>("idle");
-  const [progress, setProgress] = useState({ done: 0, total: 0, ms: 0 });
+  const [checking, setChecking] = useState<Set<string>>(new Set());
   const [filter, setFilter] = useState<Filter>("all");
   const [sortBy, setSortBy] = useState<SortBy>("order");
   const [query, setQuery] = useState("");
@@ -48,28 +49,23 @@ export default function BulkSearch() {
   const [verifying, setVerifying] = useState<Set<string>>(new Set());
   const [copied, setCopied] = useState(false);
 
-  const abortRef = useRef<AbortController | null>(null);
+  const domainsRef = useRef<string[]>([]);
+  const controllersRef = useRef<Set<AbortController>>(new Set());
+  const inputRef = useRef<HTMLInputElement | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
 
-  const parsed = useMemo(() => parseInput(input, tlds), [input, tlds]);
-
-  const runCheck = useCallback(async (domains: string[]) => {
-    abortRef.current?.abort();
+  const checkNew = useCallback(async (list: string[]) => {
+    if (list.length === 0) return;
     const controller = new AbortController();
-    abortRef.current = controller;
-
-    setResults(new Map());
-    setShowAll(false);
-    setPhase("checking");
+    controllersRef.current.add(controller);
+    setChecking((prev) => new Set([...prev, ...list]));
     const started = performance.now();
-    setProgress({ done: 0, total: domains.length, ms: 0 });
 
-    let done = 0;
     try {
       const res = await fetch("/api/check", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ domains }),
+        body: JSON.stringify({ domains: list }),
         signal: controller.signal,
       });
       if (!res.ok || !res.body) throw new Error(`check failed: ${res.status}`);
@@ -77,10 +73,9 @@ export default function BulkSearch() {
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
-
       for (;;) {
-        const { value, done: streamDone } = await reader.read();
-        if (streamDone) break;
+        const { value, done } = await reader.read();
+        if (done) break;
         buffer += decoder.decode(value, { stream: true });
         const lines = buffer.split("\n");
         buffer = lines.pop() ?? "";
@@ -93,54 +88,125 @@ export default function BulkSearch() {
           batch.push(obj as CheckResult);
         }
         if (batch.length > 0) {
-          done += batch.length;
+          const current = new Set(domainsRef.current);
           setResults((prev) => {
             const next = new Map(prev);
-            for (const r of batch) next.set(r.domain, r);
+            for (const r of batch) {
+              if (current.has(r.domain)) next.set(r.domain, r);
+            }
             return next;
           });
-          setProgress({
-            done,
-            total: domains.length,
-            ms: performance.now() - started,
+          setChecking((prev) => {
+            const next = new Set(prev);
+            for (const r of batch) next.delete(r.domain);
+            return next;
           });
         }
       }
-      setPhase("done");
+      track("check_completed", {
+        count: list.length,
+        duration_ms: Math.round(performance.now() - started),
+      });
     } catch {
-      if (!controller.signal.aborted) setPhase("done");
+      // Aborted or network failure; leftover "checking" state clears below.
+    } finally {
+      controllersRef.current.delete(controller);
+      setChecking((prev) => {
+        const next = new Set(prev);
+        for (const d of list) next.delete(d);
+        return next;
+      });
     }
   }, []);
 
-  const stopCheck = useCallback(() => {
-    abortRef.current?.abort();
-    setPhase("done");
-  }, []);
-
-  const handleInput = useCallback(
-    (value: string) => {
-      setInput(value);
-      if (parseInput(value, tlds).length === 0) {
-        abortRef.current?.abort();
-        setResults(new Map());
-        setPhase("idle");
-        setProgress({ done: 0, total: 0, ms: 0 });
+  const addDomains = useCallback(
+    (list: string[], method: string) => {
+      const existing = new Set(domainsRef.current);
+      const fresh: string[] = [];
+      for (const d of list) {
+        if (existing.size + fresh.length >= MAX_DOMAINS) break;
+        if (!existing.has(d)) {
+          existing.add(d);
+          fresh.push(d);
+        }
       }
+      if (fresh.length === 0) return;
+      domainsRef.current = [...domainsRef.current, ...fresh];
+      setDomains(domainsRef.current);
+      track("domains_added", {
+        count: fresh.length,
+        method,
+        total: domainsRef.current.length,
+      });
+      checkNew(fresh);
     },
-    [tlds],
+    [checkNew],
   );
 
-  // "Without the need to even press a search button": small batches check
-  // themselves as you type; big batches wait for an explicit click.
-  useEffect(() => {
-    if (parsed.length === 0 || parsed.length > AUTO_CHECK_LIMIT) return;
-    const timer = setTimeout(() => runCheck(parsed), 600);
-    return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [input, tlds]);
+  const removeDomain = useCallback((domain: string) => {
+    domainsRef.current = domainsRef.current.filter((d) => d !== domain);
+    setDomains(domainsRef.current);
+    setResults((prev) => {
+      const next = new Map(prev);
+      next.delete(domain);
+      return next;
+    });
+    setChecking((prev) => {
+      const next = new Set(prev);
+      next.delete(domain);
+      return next;
+    });
+    track("domain_removed", { total: domainsRef.current.length });
+  }, []);
+
+  const clearAll = useCallback(() => {
+    for (const c of controllersRef.current) c.abort();
+    controllersRef.current.clear();
+    domainsRef.current = [];
+    setDomains([]);
+    setResults(new Map());
+    setChecking(new Set());
+    setDraft("");
+  }, []);
+
+  const stopChecking = useCallback(() => {
+    for (const c of controllersRef.current) c.abort();
+    controllersRef.current.clear();
+    setChecking(new Set());
+  }, []);
+
+  const commitDraft = useCallback(
+    (method: string) => {
+      const tokens = parseInput(draft, DEFAULT_TLDS);
+      if (tokens.length > 0) addDomains(tokens, method);
+      setDraft("");
+    },
+    [draft, addDomains],
+  );
+
+  // Separators (space, comma, semicolon) commit completed tokens as chips
+  // while the tail keeps being typed — classic tag-input behavior.
+  const handleDraftChange = useCallback(
+    (value: string) => {
+      if (!/[\s,;]/.test(value)) {
+        setDraft(value);
+        return;
+      }
+      const endsWithSeparator = /[\s,;]$/.test(value);
+      const parts = value.split(/[\s,;]+/).filter(Boolean);
+      const commit = endsWithSeparator ? parts : parts.slice(0, -1);
+      const rest = endsWithSeparator ? "" : (parts[parts.length - 1] ?? "");
+      if (commit.length > 0) {
+        addDomains(parseInput(commit.join("\n"), DEFAULT_TLDS), "type");
+      }
+      setDraft(rest);
+    },
+    [addDomains],
+  );
 
   const verify = useCallback(async (domain: string) => {
     setVerifying((prev) => new Set(prev).add(domain));
+    track("verify_clicked", { domain });
     try {
       const res = await fetch(`/api/verify?domain=${encodeURIComponent(domain)}`);
       if (res.ok) {
@@ -166,6 +232,11 @@ export default function BulkSearch() {
     return c;
   }, [results]);
 
+  const unchecked = useMemo(
+    () => domains.filter((d) => !results.has(d) && !checking.has(d)),
+    [domains, results, checking],
+  );
+
   const visible = useMemo(() => {
     let list = [...results.values()];
     if (filter !== "all") list = list.filter((r) => r.status === filter);
@@ -179,8 +250,8 @@ export default function BulkSearch() {
   }, [results, filter, query, sortBy]);
 
   const shown = showAll ? visible : visible.slice(0, VISIBLE_LIMIT);
-  const rate =
-    progress.ms > 200 ? Math.round((progress.done / progress.ms) * 1000) : 0;
+  const overflow = Math.max(0, domains.length - CHIP_CAP);
+  const chipDomains = overflow > 0 ? domains.slice(-CHIP_CAP) : domains;
 
   const exportCsv = useCallback(() => {
     const rows = [
@@ -194,6 +265,7 @@ export default function BulkSearch() {
     a.download = "domains.csv";
     a.click();
     URL.revokeObjectURL(url);
+    track("export_csv", { count: visible.length });
   }, [visible]);
 
   const copyAvailable = useCallback(async () => {
@@ -203,56 +275,70 @@ export default function BulkSearch() {
     await navigator.clipboard.writeText(names.join("\n"));
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
+    track("copy_available", { count: names.length });
   }, [results]);
 
-  const importFile = useCallback(async (file: File) => {
-    const text = await file.text();
-    setInput((prev) => (prev.trim() ? `${prev}\n${text}` : text));
-  }, []);
-
-  const toggleTld = (tld: string) =>
-    setTlds((prev) =>
-      prev.includes(tld) ? prev.filter((t) => t !== tld) : [...prev, tld],
-    );
+  const importFile = useCallback(
+    async (file: File) => {
+      const text = await file.text();
+      addDomains(parseInput(text, DEFAULT_TLDS), "csv");
+    },
+    [addDomains],
+  );
 
   return (
     <div className="w-full max-w-4xl mx-auto px-4">
-      {/* Input card */}
+      {/* Chip input card */}
       <div className="rounded-2xl border border-line bg-surface shadow-sm overflow-hidden">
-        <textarea
-          value={input}
-          onChange={(e) => handleInput(e.target.value)}
-          onKeyDown={(e) => {
-            if ((e.metaKey || e.ctrlKey) && e.key === "Enter" && parsed.length > 0) {
-              e.preventDefault();
-              runCheck(parsed);
-            }
-          }}
-          placeholder={
-            "Paste names or domains — one per line, or comma-separated.\n\nmybrand\ncoolstartup.com\nnextbigthing.io"
-          }
-          spellCheck={false}
-          className="w-full h-44 resize-y bg-transparent px-4 py-3 font-mono text-sm text-ink placeholder:text-ink-3 focus:outline-none"
-        />
-        <div className="flex flex-wrap items-center gap-2 border-t border-line px-3 py-2.5">
-          <span className="text-xs text-ink-3 mr-1">Add TLDs to bare names:</span>
-          {EXPANDABLE_TLDS.map((tld) => (
-            <button
-              key={tld}
-              onClick={() => toggleTld(tld)}
-              className={`rounded-full border px-2.5 py-0.5 text-xs transition-colors ${
-                tlds.includes(tld)
-                  ? "border-accent bg-accent/10 text-accent"
-                  : "border-line text-ink-2 hover:border-ink-3"
-              }`}
-            >
-              .{tld}
-            </button>
+        <div
+          className="flex min-h-32 cursor-text flex-wrap content-start items-start gap-2 px-3 py-3"
+          onClick={() => inputRef.current?.focus()}
+        >
+          {overflow > 0 && (
+            <span className="inline-flex items-center rounded-md px-2 py-1 text-xs font-medium text-ink-3 md:text-sm">
+              +{overflow.toLocaleString()} more…
+            </span>
+          )}
+          {chipDomains.map((domain) => (
+            <DomainChip
+              key={domain}
+              domain={domain}
+              result={results.get(domain)}
+              onRemove={() => removeDomain(domain)}
+            />
           ))}
-          <div className="flex-1" />
-          <span className="text-xs tabular-nums text-ink-3">
-            {parsed.length.toLocaleString()} / {MAX_DOMAINS.toLocaleString()} domains
-          </span>
+          <input
+            ref={inputRef}
+            value={draft}
+            onChange={(e) => handleDraftChange(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                commitDraft("enter");
+              } else if (e.key === "Backspace" && draft === "" && domains.length > 0) {
+                removeDomain(domains[domains.length - 1]);
+              }
+            }}
+            onBlur={() => commitDraft("blur")}
+            onPaste={(e) => {
+              e.preventDefault();
+              addDomains(
+                parseInput(e.clipboardData.getData("text"), DEFAULT_TLDS),
+                "paste",
+              );
+            }}
+            placeholder={
+              domains.length === 0
+                ? "Type or paste domains — press Enter to check…"
+                : "Add more…"
+            }
+            autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="none"
+            spellCheck={false}
+            enterKeyHint="search"
+            className="h-8 min-w-48 flex-1 bg-transparent font-mono text-sm text-ink outline-none placeholder:text-ink-3"
+          />
         </div>
         <div className="flex flex-wrap items-center gap-2 border-t border-line px-3 py-2.5">
           <input
@@ -273,59 +359,55 @@ export default function BulkSearch() {
             Import CSV
           </button>
           <button
-            onClick={() => handleInput(EXAMPLE_INPUT)}
+            onClick={() => addDomains(parseInput(EXAMPLE_INPUT, DEFAULT_TLDS), "example")}
             className="rounded-lg border border-line px-3 py-1.5 text-sm text-ink-2 hover:border-ink-3"
           >
             Example
           </button>
-          {input && (
+          {domains.length > 0 && (
             <button
-              onClick={() => handleInput("")}
+              onClick={clearAll}
               className="rounded-lg px-3 py-1.5 text-sm text-ink-3 hover:text-ink-2"
             >
               Clear
             </button>
           )}
           <div className="flex-1" />
-          {phase === "checking" ? (
+          <span className="text-xs tabular-nums text-ink-3">
+            {domains.length.toLocaleString()} / {MAX_DOMAINS.toLocaleString()}
+          </span>
+          {checking.size > 0 && (
             <button
-              onClick={stopCheck}
+              onClick={stopChecking}
               className="rounded-lg border border-line px-4 py-1.5 text-sm font-medium text-ink-2 hover:border-ink-3"
             >
               Stop
             </button>
-          ) : (
+          )}
+          {unchecked.length > 0 && (
             <button
-              onClick={() => runCheck(parsed)}
-              disabled={parsed.length === 0}
-              className="rounded-lg bg-accent px-4 py-1.5 text-sm font-medium text-white transition-opacity disabled:opacity-40"
+              onClick={() => checkNew(unchecked)}
+              className="rounded-lg bg-accent px-4 py-1.5 text-sm font-medium text-white"
             >
-              Check {parsed.length > 0 ? parsed.length.toLocaleString() : ""} domains
+              Check {unchecked.length.toLocaleString()}
             </button>
           )}
         </div>
       </div>
 
       {/* Progress */}
-      {progress.total > 0 && (
+      {checking.size > 0 && (
         <div className="mt-4">
           <div className="h-0.5 w-full overflow-hidden rounded-full bg-line">
             <div
               className="h-full bg-accent transition-[width] duration-200"
-              style={{ width: `${(progress.done / progress.total) * 100}%` }}
+              style={{
+                width: `${domains.length > 0 ? (results.size / domains.length) * 100 : 0}%`,
+              }}
             />
           </div>
-          <div className="mt-1.5 flex justify-between text-xs tabular-nums text-ink-3">
-            <span>
-              {progress.done.toLocaleString()} / {progress.total.toLocaleString()}{" "}
-              checked
-            </span>
-            {rate > 0 && (
-              <span>
-                {(progress.ms / 1000).toFixed(1)}s · {rate.toLocaleString()}{" "}
-                domains/s
-              </span>
-            )}
+          <div className="mt-1.5 text-xs tabular-nums text-ink-3">
+            {results.size.toLocaleString()} / {domains.length.toLocaleString()} checked
           </div>
         </div>
       )}
@@ -427,6 +509,81 @@ export default function BulkSearch() {
   );
 }
 
+function DomainChip({
+  domain,
+  result,
+  onRemove,
+}: {
+  domain: string;
+  result: CheckResult | undefined;
+  onRemove: () => void;
+}) {
+  const status = result?.status;
+  const chipClass =
+    status === "available"
+      ? "bg-good text-white"
+      : status === "taken"
+        ? "bg-bad text-white"
+        : status === "unknown"
+          ? "bg-warn text-[#3a2a00]"
+          : "border border-line bg-transparent text-ink-2 animate-pulse";
+  const href =
+    status === "available"
+      ? buyUrl(REGISTRARS[0], domain)
+      : status === "taken"
+        ? whoisUrl(domain)
+        : undefined;
+
+  return (
+    <span
+      className={`inline-flex items-stretch overflow-hidden rounded-md text-xs font-medium md:text-sm ${chipClass}`}
+      onClick={(e) => e.stopPropagation()}
+    >
+      {href ? (
+        <a
+          href={href}
+          target="_blank"
+          rel="sponsored noopener nofollow"
+          aria-label={domain}
+          title={
+            status === "available"
+              ? `Register ${domain} at ${REGISTRARS[0].name}`
+              : `WHOIS for ${domain}`
+          }
+          onClick={() =>
+            track("registrar_click", { domain, status, placement: "chip" })
+          }
+          className="py-1 pl-2 font-mono hover:opacity-90"
+        >
+          {domain}
+        </a>
+      ) : (
+        <span className="py-1 pl-2 font-mono">{domain}</span>
+      )}
+      <button
+        type="button"
+        onClick={onRemove}
+        aria-label={`Remove ${domain}`}
+        className="flex items-center px-1.5 transition-colors hover:bg-black/25"
+      >
+        <svg
+          width="10"
+          height="10"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          aria-hidden="true"
+        >
+          <path d="M18 6 6 18" />
+          <path d="m6 6 12 12" />
+        </svg>
+      </button>
+    </span>
+  );
+}
+
 function StatTile({
   label,
   value,
@@ -484,6 +641,14 @@ function ResultRow({
           target="_blank"
           rel="noopener noreferrer sponsored"
           title={`Register ${result.domain} at ${REGISTRARS[0].name}`}
+          onClick={() =>
+            track("registrar_click", {
+              domain: result.domain,
+              status: result.status,
+              registrar: REGISTRARS[0].id,
+              placement: "row",
+            })
+          }
           className="min-w-0 flex-1 break-all font-mono text-sm text-ink hover:text-accent hover:underline"
         >
           {result.domain}
@@ -518,6 +683,14 @@ function ResultRow({
               href={buyUrl(reg, result.domain)}
               target="_blank"
               rel="noopener noreferrer sponsored"
+              onClick={() =>
+                track("registrar_click", {
+                  domain: result.domain,
+                  status: result.status,
+                  registrar: reg.id,
+                  placement: "row",
+                })
+              }
               className="text-xs text-accent hover:underline"
             >
               {reg.name}
