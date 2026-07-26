@@ -59,8 +59,8 @@ function fmtCompactPrice(v: number): string {
 // contributes a grabbable thumb.
 const RANGE_THUMB_CLASS =
   "pointer-events-none absolute inset-0 h-4 w-full appearance-none bg-transparent " +
-  "[&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:shadow-[0_0_0_2px_rgba(0,0,0,0.6)] " +
-  "[&::-moz-range-thumb]:pointer-events-auto [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-white";
+  "[&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-ink [&::-webkit-slider-thumb]:shadow-[0_0_0_2px_var(--surface)] " +
+  "[&::-moz-range-thumb]:pointer-events-auto [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-ink";
 
 const VISIBLE_LIMIT = 400;
 const CHIP_CAP = 20;
@@ -444,12 +444,12 @@ export default function BulkSearch() {
 
   if (view === "results") {
     return (
-      <div className="fixed inset-0 z-50 flex flex-col bg-[#0b0b0b] text-white">
+      <div className="fixed inset-0 z-50 flex flex-col bg-background text-ink">
         {/* Top bar */}
-        <div className="flex items-center gap-2 border-b border-white/10 px-3 py-2.5 sm:px-5">
+        <div className="flex items-center gap-2 border-b border-line px-3 py-2.5 sm:px-5">
           <button
             onClick={() => setView("compose")}
-            className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium text-white/80 transition-colors hover:bg-white/10 hover:text-white"
+            className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium text-ink-2 transition-colors hover:bg-ink/5 hover:text-ink"
           >
             <svg
               width="16"
@@ -470,7 +470,7 @@ export default function BulkSearch() {
           {checking.size > 0 && (
             <button
               onClick={stopChecking}
-              className="rounded-lg border border-white/15 px-3 py-1.5 text-sm font-medium text-white/80 hover:bg-white/10"
+              className="rounded-lg border border-line px-3 py-1.5 text-sm font-medium text-ink-2 hover:bg-ink/5"
             >
               Stop
             </button>
@@ -479,7 +479,7 @@ export default function BulkSearch() {
 
         {/* Thin progress line while checks stream in */}
         {checking.size > 0 && (
-          <div className="h-0.5 w-full overflow-hidden bg-white/10">
+          <div className="h-0.5 w-full overflow-hidden bg-ink/10">
             <div
               className="h-full bg-accent transition-[width] duration-200"
               style={{
@@ -491,15 +491,15 @@ export default function BulkSearch() {
 
         <div className="flex min-h-0 flex-1">
           {/* Sidebar */}
-          <aside className="hidden w-64 shrink-0 flex-col overflow-y-auto border-r border-white/10 px-4 py-5 md:flex">
-            <div className="px-2 text-xs font-semibold uppercase tracking-wide text-white/40">
+          <aside className="hidden w-64 shrink-0 flex-col overflow-y-auto border-r border-line px-4 py-5 md:flex">
+            <div className="px-2 text-xs font-semibold uppercase tracking-wide text-ink-3">
               Display
             </div>
             <nav className="mt-2 space-y-1">
               <SideFilter
                 label="All domains"
                 count={domains.length}
-                barClass="bg-white/60"
+                barClass="bg-ink-3"
                 active={filter === "all"}
                 onClick={() => setFilter("all")}
               />
@@ -526,15 +526,15 @@ export default function BulkSearch() {
               />
             </nav>
 
-            <div className="mt-5 border-t border-white/10" />
-            <div className="mt-5 px-2 text-xs font-semibold uppercase tracking-wide text-white/40">
+            <div className="mt-5 border-t border-line" />
+            <div className="mt-5 px-2 text-xs font-semibold uppercase tracking-wide text-ink-3">
               Filters
             </div>
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Filter results…"
-              className="mt-2 w-full rounded-lg border border-white/15 bg-transparent px-3 py-1.5 text-sm text-white placeholder:text-white/35 focus:border-accent focus:outline-none"
+              className="mt-2 w-full rounded-lg border border-line bg-transparent px-3 py-1.5 text-sm text-ink placeholder:text-ink-3 focus:border-accent focus:outline-none"
             />
             <nav className="mt-2 space-y-0.5">
               <FilterRow
@@ -576,12 +576,12 @@ export default function BulkSearch() {
                       }
                       className={`flex w-full items-center gap-2 rounded-md px-2 py-1 text-left text-sm transition-colors ${
                         tldFilter.has(tld)
-                          ? "bg-white/10 text-white"
-                          : "text-white/60 hover:bg-white/5 hover:text-white"
+                          ? "bg-ink/10 text-ink"
+                          : "text-ink-2 hover:bg-ink/5 hover:text-ink"
                       }`}
                     >
                       <span className="flex-1 font-mono">.{tld}</span>
-                      <span className="text-xs tabular-nums text-white/40">
+                      <span className="text-xs tabular-nums text-ink-3">
                         {n.toLocaleString()}
                       </span>
                     </button>
@@ -589,7 +589,7 @@ export default function BulkSearch() {
                   {tldFilter.size > 0 && (
                     <button
                       onClick={() => setTldFilter(new Set())}
-                      className="w-full rounded-md px-2 py-1 text-left text-xs text-white/40 hover:text-white"
+                      className="w-full rounded-md px-2 py-1 text-left text-xs text-ink-3 hover:text-ink"
                     >
                       Reset
                     </button>
@@ -646,22 +646,22 @@ export default function BulkSearch() {
               />
               {openPanel === "price" &&
                 (priceExtent ? (
-                  <div className="mx-1 mt-1 rounded-xl border border-white/10 bg-white/5 px-3.5 py-3">
+                  <div className="mx-1 mt-1 rounded-xl border border-line bg-ink/5 px-3.5 py-3">
                     <div className="flex items-center justify-between">
-                      <span className="text-sm font-semibold text-white">
+                      <span className="text-sm font-semibold text-ink">
                         Filter by price
                       </span>
                       <button
                         onClick={() => setPriceRange([0, 100])}
-                        className="text-xs text-white/50 hover:text-white"
+                        className="text-xs text-ink-3 hover:text-ink"
                       >
                         Clear
                       </button>
                     </div>
                     <div className="relative mt-4 h-4">
-                      <div className="absolute inset-x-0 top-1/2 h-1 -translate-y-1/2 rounded-full bg-white/15" />
+                      <div className="absolute inset-x-0 top-1/2 h-1 -translate-y-1/2 rounded-full bg-line" />
                       <div
-                        className="absolute top-1/2 h-1 -translate-y-1/2 rounded-full bg-white"
+                        className="absolute top-1/2 h-1 -translate-y-1/2 rounded-full bg-accent"
                         style={{
                           left: `${priceRange[0]}%`,
                           right: `${100 - priceRange[1]}%`,
@@ -696,7 +696,7 @@ export default function BulkSearch() {
                         className={RANGE_THUMB_CLASS}
                       />
                     </div>
-                    <div className="mt-2 flex items-center justify-between text-xs text-white/70">
+                    <div className="mt-2 flex items-center justify-between text-xs text-ink-2">
                       <span>
                         Min: {fmtCompactPrice(priceBounds.min ?? priceExtent.lo)}
                       </span>
@@ -706,14 +706,14 @@ export default function BulkSearch() {
                     </div>
                   </div>
                 ) : (
-                  <div className="ml-9 py-1 pr-2 text-xs text-white/40">
+                  <div className="ml-9 py-1 pr-2 text-xs text-ink-3">
                     No priced listings yet.
                   </div>
                 ))}
             </nav>
 
             <div className="mt-auto pt-6">
-              <div className="border-t border-white/10" />
+              <div className="border-t border-line" />
               <nav className="mt-3 space-y-0.5">
                 <FilterRow
                   label={copied ? "Copied" : "Copy available"}
@@ -757,7 +757,7 @@ export default function BulkSearch() {
                 {domains.length === 1 ? "" : "s"} searched
               </h2>
               {checking.size > 0 && (
-                <span className="text-xs tabular-nums text-white/40">
+                <span className="text-xs tabular-nums text-ink-3">
                   {results.size.toLocaleString()} / {domains.length.toLocaleString()} checked
                 </span>
               )}
@@ -767,7 +767,7 @@ export default function BulkSearch() {
             <div className="mt-3 flex gap-2 overflow-x-auto pb-1 md:hidden">
               {(
                 [
-                  { key: "all", label: "All", count: domains.length, dot: "bg-white/60" },
+                  { key: "all", label: "All", count: domains.length, dot: "bg-ink-3" },
                   { key: "available", label: "Available", count: counts.available, dot: "bg-good" },
                   { key: "forsale", label: "For sale", count: counts.forsale, dot: "bg-sale" },
                   { key: "taken", label: "Taken", count: counts.taken, dot: "bg-bad" },
@@ -778,8 +778,8 @@ export default function BulkSearch() {
                   onClick={() => setFilter(f.key)}
                   className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1 text-xs ${
                     filter === f.key
-                      ? "border-accent text-white"
-                      : "border-white/15 text-white/70"
+                      ? "border-accent text-ink"
+                      : "border-line text-ink-2"
                   }`}
                 >
                   <span className={`h-1.5 w-1.5 rounded-full ${f.dot}`} />
@@ -798,7 +798,7 @@ export default function BulkSearch() {
             </div>
 
             {visible.length === 0 && pending.length === 0 && (
-              <div className="mt-10 text-center text-sm text-white/40">
+              <div className="mt-10 text-center text-sm text-ink-3">
                 Nothing matches this filter.
               </div>
             )}
@@ -807,7 +807,7 @@ export default function BulkSearch() {
               visible.length + pending.length > shown.length + shownPending.length && (
                 <button
                   onClick={() => setShowAll(true)}
-                  className="mt-5 w-full rounded-lg border border-white/15 py-2 text-sm text-white/70 hover:bg-white/10"
+                  className="mt-5 w-full rounded-lg border border-line py-2 text-sm text-ink-2 hover:bg-ink/5"
                 >
                   Show all {(visible.length + pending.length).toLocaleString()} results
                 </button>
@@ -1089,11 +1089,11 @@ function FilterRow({
     <button
       onClick={onClick}
       disabled={disabled}
-      className={`flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left text-sm transition-colors hover:bg-white/5 disabled:opacity-40 disabled:hover:bg-transparent ${
-        active ? "text-white" : "text-white/70 hover:text-white"
+      className={`flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left text-sm transition-colors hover:bg-ink/5 disabled:opacity-40 disabled:hover:bg-transparent ${
+        active ? "text-ink" : "text-ink-2 hover:text-ink"
       }`}
     >
-      <span className={active ? "text-accent" : "text-white/50"}>{icon}</span>
+      <span className={active ? "text-accent" : "text-ink-3"}>{icon}</span>
       <span className="flex-1">{label}</span>
       {badge != null && (
         <span className="rounded-full bg-accent/20 px-1.5 text-xs tabular-nums text-accent">
@@ -1122,13 +1122,13 @@ function SideFilter({
       onClick={onClick}
       className={`flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left text-sm transition-colors ${
         active
-          ? "bg-white/10 text-white"
-          : "text-white/70 hover:bg-white/5 hover:text-white"
+          ? "bg-ink/10 text-ink"
+          : "text-ink-2 hover:bg-ink/5 hover:text-ink"
       }`}
     >
       <span className={`h-4 w-1 shrink-0 rounded-full ${barClass}`} />
       <span className="flex-1">{label}</span>
-      <span className="text-xs tabular-nums text-white/40">
+      <span className="text-xs tabular-nums text-ink-3">
         {count.toLocaleString()}
       </span>
     </button>
@@ -1137,12 +1137,12 @@ function SideFilter({
 
 function PendingLine({ domain }: { domain: string }) {
   return (
-    <div className="flex min-w-0 items-center gap-3 border-b border-white/10 py-2.5">
-      <span className="h-6 w-1 shrink-0 animate-pulse rounded-full bg-white/20" />
-      <span className="min-w-0 flex-1 truncate font-mono text-sm text-white/40">
+    <div className="flex min-w-0 items-center gap-3 border-b border-line py-2.5">
+      <span className="h-6 w-1 shrink-0 animate-pulse rounded-full bg-line" />
+      <span className="min-w-0 flex-1 truncate font-mono text-sm text-ink-3">
         {domain}
       </span>
-      <span className="shrink-0 text-xs text-white/30">Checking…</span>
+      <span className="shrink-0 text-xs text-ink-3">Checking…</span>
     </div>
   );
 }
@@ -1172,7 +1172,7 @@ function ResultLine({ result }: { result: CheckResult }) {
     });
 
   return (
-    <div className="group flex min-w-0 items-center gap-3 border-b border-white/10 py-2.5">
+    <div className="group flex min-w-0 items-center gap-3 border-b border-line py-2.5">
       <span className={`h-6 w-1 shrink-0 rounded-full ${bar}`} />
       <a
         href={href}
@@ -1180,7 +1180,7 @@ function ResultLine({ result }: { result: CheckResult }) {
         rel="noopener noreferrer sponsored nofollow"
         title={title}
         onClick={onClickTrack}
-        className="min-w-0 flex-1 truncate font-mono text-sm text-white hover:underline"
+        className="min-w-0 flex-1 truncate font-mono text-sm text-ink hover:underline"
       >
         {result.domain}
       </a>
@@ -1193,10 +1193,10 @@ function ResultLine({ result }: { result: CheckResult }) {
         onClick={onClickTrack}
         className={`shrink-0 text-sm font-medium hover:underline ${
           isAvailable
-            ? "text-green-400"
+            ? "text-good-text"
             : listing
-              ? "text-blue-400"
-              : "text-red-400"
+              ? "text-sale-text"
+              : "text-bad-text"
         }`}
       >
         {isAvailable ? "Register" : listing ? formatPrice(listing) : "Lookup"}
