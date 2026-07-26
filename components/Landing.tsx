@@ -198,6 +198,20 @@ const ICON_PATHS: Record<string, React.ReactNode> = {
     </>
   ),
   "chevron-down": <path d="m6 9 6 6 6-6" />,
+  "between-horizontal-start": (
+    <>
+      <rect width="13" height="7" x="8" y="3" rx="1" />
+      <path d="m2 9 3 3-3 3" />
+      <rect width="13" height="7" x="8" y="14" rx="1" />
+    </>
+  ),
+  download: (
+    <>
+      <path d="M12 15V3" />
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+      <path d="m7 10 5 5 5-5" />
+    </>
+  ),
   "arrow-up": (
     <>
       <path d="m5 12 7-7 7 7" />
@@ -323,6 +337,7 @@ function FeatureCell({
   mockup,
   className,
   delay = 0,
+  bare = false,
 }: {
   icon: string;
   title: string;
@@ -330,6 +345,8 @@ function FeatureCell({
   mockup: React.ReactNode;
   className?: string;
   delay?: number;
+  /** Render the mockup free-floating instead of inside a window panel. */
+  bare?: boolean;
 }) {
   return (
     <div
@@ -345,11 +362,15 @@ function FeatureCell({
         <p className="text-base leading-6 text-ink-2">{body}</p>
       </div>
       <div className="flex justify-start">
-        <div className="relative h-[200px] w-full max-w-[374px] overflow-hidden">
-          <div className="h-full w-full overflow-hidden rounded-t-xl border border-b-0 border-line bg-gradient-to-br from-surface to-background p-4">
-            {mockup}
+        {bare ? (
+          mockup
+        ) : (
+          <div className="relative h-[200px] w-full max-w-[374px] overflow-hidden">
+            <div className="h-full w-full overflow-hidden rounded-t-xl border border-b-0 border-line bg-gradient-to-br from-surface to-background p-4">
+              {mockup}
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
@@ -472,33 +493,78 @@ function Features() {
           }
         />
         <FeatureCell
-          icon="hard-drive-download"
-          title="Aftermarket prices & export"
-          body="Registered doesn't mean unavailable — millions of for-sale listings are indexed with asking prices inline. Buy in one click, or export the full result set as CSV."
+          icon="between-horizontal-start"
+          title="Multi-registrar pricing & export"
+          body="Compare live first-year and renewal prices across 20+ registrars in one glance. Buy in one click, or export the full result set as CSV for the team."
           className="md:pl-10"
           delay={100}
+          bare
           mockup={
-            <div className="font-mono text-xs">
-              <div className="space-y-1.5">
+            <div className="relative h-[200px] w-full overflow-hidden sm:w-[400px]">
+              <div className="absolute left-0 top-[calc(50%-8px)] hidden size-10 -translate-y-1/2 items-center justify-center rounded-lg border border-line bg-surface transition-colors hover:border-ink-3 sm:flex">
+                <Icon name="download" className="size-4 text-ink" />
+              </div>
+              <svg
+                className="pointer-events-none absolute left-10 right-[256px] top-0 hidden h-full sm:block"
+                viewBox="0 0 100 200"
+                fill="none"
+                preserveAspectRatio="none"
+                aria-hidden="true"
+              >
+                <path
+                  d="M0 93 C50 93 50 167 100 167"
+                  className="stroke-ink-3"
+                  strokeDasharray="2.5 2.5"
+                />
+                <path
+                  d="M0 93 C50 93 50 118 100 118"
+                  className="stroke-ink"
+                  strokeWidth="0.75"
+                />
+                <path
+                  d="M0 93 C50 93 50 69 100 69"
+                  className="stroke-ink"
+                  strokeWidth="0.75"
+                />
+                <path
+                  d="M0 93 C50 93 50 21 100 21"
+                  className="stroke-ink"
+                  strokeWidth="0.75"
+                />
+              </svg>
+              <div className="flex w-full flex-col gap-2 sm:absolute sm:right-5 sm:w-[240px]">
                 {(
                   [
-                    ["nastyfast.com", "$4,695"],
-                    ["wickedlyfast.com", "$12,995"],
-                    ["evilfast.com", "$1,499"],
+                    ["N", "Namecheap", "$10.28", "bg-orange-500/15 text-orange-500"],
+                    ["P", "Porkbun", "$11.06", "bg-pink-500/15 text-pink-500"],
+                    ["D", "Dynadot", "$11.99", "bg-blue-500/15 text-blue-500"],
                   ] as const
-                ).map(([name, price]) => (
-                  <div key={name} className="flex items-center gap-2.5">
-                    <span className="h-4 w-1 shrink-0 rounded-full bg-sale" />
-                    <span className="flex-1 truncate text-ink">{name}</span>
-                    <span className="shrink-0 font-sans font-semibold text-sale-text">
+                ).map(([initial, name, price, badge]) => (
+                  <div
+                    key={name}
+                    className="flex cursor-default items-center gap-2 rounded-lg border border-line bg-surface py-2 pl-3 pr-2 transition-colors hover:border-ink-3"
+                  >
+                    <span
+                      className={`flex size-4 shrink-0 items-center justify-center rounded text-[9px] font-bold ${badge}`}
+                    >
+                      {initial}
+                    </span>
+                    <span className="flex-1 truncate text-sm text-ink-2">
+                      {name}
+                    </span>
+                    <span className="shrink-0 rounded bg-ink/5 px-1.5 py-0.5 text-xs font-semibold text-good-text">
                       {price}
                     </span>
                   </div>
                 ))}
-              </div>
-              <div className="mt-4 flex w-fit items-center gap-2 rounded-lg bg-ink/5 px-3 py-2 font-sans text-ink-2">
-                <Icon name="hard-drive-download" className="size-4 shrink-0" />
-                Export CSV
+                <div className="flex cursor-default items-center gap-2 rounded-lg border border-line bg-surface py-2 pl-3 pr-2 opacity-60">
+                  <span className="flex size-4 shrink-0 items-center justify-center rounded bg-teal-500/15 text-[9px] font-bold text-teal-500">
+                    G
+                  </span>
+                  <span className="flex-1 truncate text-sm text-ink-2">
+                    GoDaddy
+                  </span>
+                </div>
               </div>
             </div>
           }
