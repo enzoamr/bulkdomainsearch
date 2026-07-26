@@ -4,6 +4,9 @@ import type { CheckSummary } from "@/lib/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+// A full 5,000-domain batch can run for minutes; without this Vercel cuts
+// the stream at its 10s default. 300s is the Hobby-plan ceiling.
+export const maxDuration = 300;
 
 /**
  * Streams one NDJSON line per domain as each check completes, so the client
