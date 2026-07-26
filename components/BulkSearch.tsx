@@ -923,6 +923,7 @@ export default function BulkSearch() {
                 ? "Type or paste domains…"
                 : "Add more…"
             }
+            autoFocus
             autoComplete="off"
             autoCorrect="off"
             autoCapitalize="none"
@@ -935,14 +936,42 @@ export default function BulkSearch() {
           {hiddenInput}
           <button
             onClick={() => fileRef.current?.click()}
-            className="rounded-lg border border-line px-3 py-1.5 text-sm text-ink-2 hover:border-ink-3"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-line px-3 py-1.5 text-sm text-ink-2 hover:border-ink-3"
           >
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.75"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="17 8 12 3 7 8" />
+              <line x1="12" x2="12" y1="3" y2="15" />
+            </svg>
             Import CSV
           </button>
           <button
             onClick={() => addDomains(parseInput(EXAMPLE_INPUT, DEFAULT_TLDS), "example")}
-            className="rounded-lg border border-line px-3 py-1.5 text-sm text-ink-2 hover:border-ink-3"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-line px-3 py-1.5 text-sm text-ink-2 hover:border-ink-3"
           >
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.75"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z" />
+            </svg>
             Example
           </button>
           {domains.length > 0 && (
