@@ -198,6 +198,7 @@ const ICON_PATHS: Record<string, React.ReactNode> = {
     </>
   ),
   "chevron-down": <path d="m6 9 6 6 6-6" />,
+  "chevron-right": <path d="m9 18 6-6-6-6" />,
   "between-horizontal-start": (
     <>
       <rect width="13" height="7" x="8" y="3" rx="1" />
@@ -428,25 +429,31 @@ function Features() {
           className="border-b border-line md:pl-10"
           delay={60}
           mockup={
-            <div className="space-y-1.5 font-mono text-xs">
+            <div className="flex h-full flex-col gap-2">
               {(
                 [
                   ["madeyoulook.com", "bg-bad", "Lookup", "text-bad-text", 0],
-                  ["dagger.online", "bg-good", "Register", "text-good-text", 700],
-                  ["footpath.org", "bg-good", "Register", "text-good-text", 1400],
-                  ["agenda.me", "bg-sale", "$999", "text-sale-text", 2100],
+                  ["dagger.online", "bg-good", "Register", "text-good-text", 600],
+                  ["footpath.org", "bg-good", "Register", "text-good-text", 1200],
+                  ["agenda.me", "bg-sale", "$999", "text-sale-text", 1800],
+                  ["console.dev", "bg-bad", "Lookup", "text-bad-text", 2400],
                 ] as const
               ).map(([name, bar, label, cls, delay]) => (
                 <div
                   key={name}
-                  className="demo-row flex items-center gap-2.5"
+                  className="demo-row flex min-h-9 items-center gap-3 rounded-lg px-1"
                   style={{ animationDelay: `${delay}ms` }}
                 >
-                  <span className={`h-4 w-1 shrink-0 rounded-full ${bar}`} />
-                  <span className="flex-1 truncate text-ink">{name}</span>
-                  <span className={`shrink-0 font-sans font-medium ${cls}`}>
-                    {label}
-                  </span>
+                  <span
+                    aria-hidden="true"
+                    className={`h-5 w-1 shrink-0 rounded-full ${bar}`}
+                  />
+                  <span className="flex-1 truncate text-sm text-ink">{name}</span>
+                  <span className={`text-xs font-medium ${cls}`}>{label}</span>
+                  <Icon
+                    name="chevron-right"
+                    className="size-4 shrink-0 text-ink-3"
+                  />
                 </div>
               ))}
             </div>
