@@ -14,25 +14,32 @@
  * Schedule nightly (files rebuild ~14:30 UTC), e.g.:
  *   45 14 * * * cd /srv/bulkdomainsearch && node scripts/godaddy-auctions-download.mjs
  *
- * Memory: files are JSON (not NDJSON), so each is parsed whole. The big ones
- * (all_expiring_auctions ~400MB unzipped) may need
- * `node --max-old-space-size=2048`. The defaults below stay modest.
+ * The `data` array is streamed out of each zip incrementally (stream-json), so
+ * the >512MB files (all_biddable_auctions, all_expiring_auctions) parse fine —
+ * loading them as one string blows past Node's max string length and throws.
  */
 
 import fs from "node:fs";
 import path from "node:path";
+import { Readable } from "node:stream";
 import AdmZip from "adm-zip";
+import { chain } from "stream-chain";
+import { parser } from "stream-json";
+import { pick } from "stream-json/filters/pick.js";
+import { streamArray } from "stream-json/streamers/stream-array.js";
 
 const BASE = "https://inventory.auctions.godaddy.com";
 const OUT_DIR = path.join(process.cwd(), "data", "aftermarket");
 const OUT_FILE = path.join(OUT_DIR, "godaddy.ndjson");
 
-// Basenames (without .json.zip). Biddable = live auctions; closeouts =
-// fixed-price buy-now; ending-today keeps prices fresh. Add
-// "all_expiring_auctions" for maximum coverage (heavier).
+// Basenames (without .json.zip). The full GoDaddy for-sale inventory:
+// biddable = every live auction, closeouts = fixed-price buy-now, expiring =
+// names dropping to auction soon, ending-today = a fresh subset. Duplicate
+// domains across files collapse to one row (domain is the Turso primary key).
 const DEFAULT_FILES = [
   "all_biddable_auctions",
   "closeout_listings",
+  "all_expiring_auctions",
   "all_listings_ending_today",
 ];
 
@@ -55,14 +62,30 @@ function mapType(auctionType) {
   return "auction"; // "Bid" and anything else.
 }
 
-async function fetchZipJson(basename) {
+/** Yield each element of the zip's top-level `data` array, incrementally. */
+async function* streamZipRecords(basename) {
   const url = `${BASE}/${basename}.json.zip`;
   const res = await fetch(url);
   if (!res.ok) throw new Error(`HTTP ${res.status} for ${url}`);
   const buf = Buffer.from(await res.arrayBuffer());
-  const entries = new AdmZip(buf).getEntries().filter((e) => !e.isDirectory);
-  if (entries.length === 0) throw new Error(`empty zip: ${basename}`);
-  return JSON.parse(entries[0].getData().toString("utf8"));
+  const entry = new AdmZip(buf).getEntries().find((e) => !e.isDirectory);
+  if (!entry) throw new Error(`empty zip: ${basename}`);
+  const data = entry.getData();
+
+  // Feed the decompressed bytes to the JSON parser in chunks — never as one
+  // giant string. getData() is a Buffer, which may exceed the string limit.
+  const src = new Readable({ read() {} });
+  const CHUNK = 16 * 1024 * 1024;
+  for (let i = 0; i < data.length; i += CHUNK) src.push(data.subarray(i, i + CHUNK));
+  src.push(null);
+
+  const pipe = chain([src, parser(), pick({ filter: "data" }), streamArray()]);
+  for await (const rec of pipe) yield rec.value;
+}
+
+// Backpressure-aware write so a slow disk doesn't balloon memory on 2M+ rows.
+function write(stream, line) {
+  if (!stream.write(line)) return new Promise((r) => stream.once("drain", r));
 }
 
 fs.mkdirSync(OUT_DIR, { recursive: true });
@@ -73,10 +96,8 @@ let total = 0;
 for (const basename of files) {
   process.stdout.write(`${basename}: downloading… `);
   try {
-    const doc = await fetchZipJson(basename);
-    const rows = Array.isArray(doc) ? doc : doc.data || [];
     let n = 0;
-    for (const r of rows) {
+    for await (const r of streamZipRecords(basename)) {
       const name = (r.domainName || r.domain || "").toLowerCase();
       if (!name || !name.includes(".")) continue;
       const listing = {
@@ -89,7 +110,7 @@ for (const basename of files) {
         endsAt: r.auctionEndTime || undefined,
         valuation: parsePrice(r.valuation),
       };
-      out.write(JSON.stringify(listing) + "\n");
+      await write(out, JSON.stringify(listing) + "\n");
       n++;
     }
     total += n;

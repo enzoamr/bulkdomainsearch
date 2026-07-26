@@ -22,7 +22,8 @@ concurrency:
 jobs:
   sync:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # No tight cap: the full inventory (~2M+ rows) can take a while to download
+    # and load. GitHub's own 6h job ceiling still applies as a backstop.
     steps:
       - uses: actions/checkout@v4
 
@@ -34,9 +35,9 @@ jobs:
       - run: npm ci
 
       - name: Download GoDaddy Auctions inventory
-        # Big JSON files — give Node room to parse them.
+        # Some files decompress past 500MB; give Node headroom.
         env:
-          NODE_OPTIONS: --max-old-space-size=4096
+          NODE_OPTIONS: --max-old-space-size=6144
         run: node scripts/godaddy-auctions-download.mjs
 
       - name: Load into Turso
