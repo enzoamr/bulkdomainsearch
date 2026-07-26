@@ -15,6 +15,8 @@
   --warn-text: #7a5200;
   --bad: #d03b3b;
   --bad-text: #a32626;
+  --sale: #2a78d6;
+  --sale-text: #1c5cab;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -33,6 +35,8 @@
     --warn-text: #fab219;
     --bad: #d03b3b;
     --bad-text: #e66767;
+    --sale: #3987e5;
+    --sale-text: #6da7ec;
   }
 }
 
@@ -50,6 +54,8 @@
   --color-warn-text: var(--warn-text);
   --color-bad: var(--bad);
   --color-bad-text: var(--bad-text);
+  --color-sale: var(--sale);
+  --color-sale-text: var(--sale-text);
   --font-sans: var(--font-geist-sans), system-ui, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, monospace;
 }

@@ -14,10 +14,21 @@ Checks run through three tiers, fastest first (`lib/dns.ts`):
 | 2. DNS NS query | Raw DNS (never WHOIS) — NXDOMAIN ⇒ available, delegation ⇒ taken; DNS-over-HTTPS fallback when UDP is blocked | a few ms |
 | 3. RDAP | Registry-grade confirmation (Verisign RDAP for .com/.net, IANA bootstrap elsewhere) — the public equivalent of their live Verisign check | ~100–500 ms, on demand |
 
-The `/api/check` route runs a 48-wide worker pool and **streams one NDJSON
-line per result over a single HTTP/2 connection**, so the UI renders each
-domain the moment its check completes. Small batches check themselves as you
-type — no search button needed.
+On top of availability, a registered domain is enriched with a **for-sale /
+aftermarket tier** (the blue state, with a price):
+
+| Tier | What | Latency |
+|---|---|---|
+| 4a. Aftermarket index | GoDaddy Auctions inventory (auctions, closeouts, expiring) synced daily and held in memory (`lib/aftermarket-index.ts`) — free, no key | ~0 ms, no network |
+| 4b. Sedo live API | `DomainStatus` for-sale check for names not in a local feed (`lib/sedo.ts`) — needs a free Sedo Partner key | ~100–300 ms, on demand |
+
+Result statuses: `available` (green), `forsale` (blue, with price + buy link),
+`taken` (red), `unknown` (amber). The `/api/check` route runs a 48-wide worker
+pool and **streams one NDJSON line per result over a single HTTP/2
+connection**, so the UI renders each domain the moment its check completes.
+Small batches check themselves as you type — no search button needed. The
+route is rate-limited per IP (`lib/ratelimit.ts`) so a scraper can't drain the
+DNS/registrar quotas.
 
 Everything is stateless, so the app deploys to as many regions as you like
 behind a geo-routing load balancer (Vercel, or Cloud Run + Google Cloud Load
@@ -44,6 +55,26 @@ Open http://localhost:3000, hit **Example**, and results stream in via DNS.
 
 TLDs without a zone file (all ccTLDs — .fr, .io, .me, …) automatically fall
 back to DNS, so the app is fully functional with no zone data at all.
+
+## For-sale tier (aftermarket)
+
+**GoDaddy Auctions — free, no key, ship today.** Run
+`node scripts/godaddy-auctions-download.mjs` (nightly via cron; files rebuild
+~14:30 UTC) to write `data/aftermarket/godaddy.ndjson`. Registered domains in
+the feed then show up blue with their price and a buy link — indexed locally,
+zero query-time latency, exactly like the zone files.
+
+**Sedo — live for-sale prices, free affiliate revenue.** Join the free
+[Sedo Partner Program](https://sedo.com/us/services/sedos-partner-program/),
+then set `SEDO_PARTNER_ID` / `SEDO_SIGN_KEY` (for the `DomainStatus` API) and
+`NEXT_PUBLIC_SEDO_CAMPAIGN_ID` (attributes referred sales → 15% of Sedo's
+commission). Without these, Sedo is skipped and only the local feed drives the
+blue tier. `lib/sedo.ts` is wired to Sedo's documented schema but should be
+validated once you have a real partner key.
+
+Next feeds to add (drop a `{market}.ndjson` into `data/aftermarket/`): Afternic
+Referral Partner (biggest BIN inventory, apply at afternic.com/partner) and
+Atom Cloud Broker (20% of commission).
 
 ## Affiliation
 

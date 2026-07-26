@@ -1,5 +1,6 @@
 import { checkDomain } from "@/lib/dns";
 import { isValidDomain, MAX_DOMAINS } from "@/lib/domains";
+import { clientIp, rateLimit } from "@/lib/ratelimit";
 import type { CheckSummary } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -19,6 +20,14 @@ export const maxDuration = 300;
 const CONCURRENCY = 48;
 
 export async function POST(req: Request) {
+  const limit = rateLimit(clientIp(req));
+  if (!limit.ok) {
+    return Response.json(
+      { error: "rate limited" },
+      { status: 429, headers: { "retry-after": String(limit.retryAfterSec) } },
+    );
+  }
+
   const body = (await req.json().catch(() => null)) as { domains?: unknown } | null;
   const raw = Array.isArray(body?.domains) ? body.domains : null;
   if (!raw) {

@@ -42,3 +42,6 @@ next-env.d.ts
 
 # zone-file index data (large, regenerated nightly)
 data/zones/*.txt
+
+# aftermarket index data (large, regenerated nightly)
+data/aftermarket/*.ndjson

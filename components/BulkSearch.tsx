@@ -5,7 +5,28 @@ import { useCallback, useMemo, useRef, useState } from "react";
 import { track } from "@/lib/analytics";
 import { MAX_DOMAINS, parseInput } from "@/lib/domains";
 import { buyUrl, REGISTRARS, whoisUrl } from "@/lib/registrars";
-import type { CheckResult, DomainStatus } from "@/lib/types";
+import type { CheckResult, DomainStatus, Listing } from "@/lib/types";
+
+const MARKET_NAMES: Record<string, string> = {
+  "godaddy-auctions": "GoDaddy Auctions",
+  sedo: "Sedo",
+  afternic: "Afternic",
+  atom: "Atom",
+};
+
+const LISTING_TYPE_LABEL: Record<Listing["type"], string> = {
+  auction: "Auction",
+  buyNow: "Buy now",
+  closeout: "Closeout",
+  makeOffer: "Make offer",
+};
+
+function formatPrice(listing: Listing): string {
+  if (listing.price == null) return "Make offer";
+  const symbol = listing.currency === "USD" ? "$" : listing.currency === "EUR" ? "€" : "";
+  const amount = listing.price.toLocaleString();
+  return symbol ? `${symbol}${amount}` : `${amount} ${listing.currency}`;
+}
 
 const VISIBLE_LIMIT = 400;
 const CHIP_CAP = 100;
@@ -33,6 +54,7 @@ const STATUS_META: Record<
   { label: string; dotClass: string; textClass: string }
 > = {
   available: { label: "Available", dotClass: "bg-good", textClass: "text-good-text" },
+  forsale: { label: "For sale", dotClass: "bg-sale", textClass: "text-sale-text" },
   taken: { label: "Taken", dotClass: "bg-bad", textClass: "text-bad-text" },
   unknown: { label: "Unknown", dotClass: "bg-warn", textClass: "text-warn-text" },
 };
@@ -227,7 +249,7 @@ export default function BulkSearch() {
   }, []);
 
   const counts = useMemo(() => {
-    const c = { available: 0, taken: 0, unknown: 0 };
+    const c = { available: 0, forsale: 0, taken: 0, unknown: 0 };
     for (const r of results.values()) c[r.status]++;
     return c;
   }, [results]);
@@ -255,8 +277,20 @@ export default function BulkSearch() {
 
   const exportCsv = useCallback(() => {
     const rows = [
-      "domain,status,source",
-      ...visible.map((r) => `${r.domain},${r.status},${r.source}`),
+      "domain,status,source,market,price,currency,listing_type,url",
+      ...visible.map((r) => {
+        const l = r.listing;
+        return [
+          r.domain,
+          r.status,
+          r.source,
+          l?.market ?? "",
+          l?.price ?? "",
+          l?.currency ?? "",
+          l?.type ?? "",
+          l?.url ?? "",
+        ].join(",");
+      }),
     ];
     const blob = new Blob([rows.join("\n")], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
@@ -414,7 +448,7 @@ export default function BulkSearch() {
 
       {/* Stat tiles */}
       {results.size > 0 && (
-        <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
           <StatTile
             label="Total"
             value={results.size}
@@ -427,6 +461,13 @@ export default function BulkSearch() {
             dotClass="bg-good"
             active={filter === "available"}
             onClick={() => setFilter("available")}
+          />
+          <StatTile
+            label="For sale"
+            value={counts.forsale}
+            dotClass="bg-sale"
+            active={filter === "forsale"}
+            onClick={() => setFilter("forsale")}
           />
           <StatTile
             label="Taken"
@@ -519,20 +560,31 @@ function DomainChip({
   onRemove: () => void;
 }) {
   const status = result?.status;
+  const listing = result?.listing;
   const chipClass =
     status === "available"
       ? "bg-good text-white"
-      : status === "taken"
-        ? "bg-bad text-white"
-        : status === "unknown"
-          ? "bg-warn text-[#3a2a00]"
-          : "border border-line bg-transparent text-ink-2 animate-pulse";
+      : status === "forsale"
+        ? "bg-sale text-white"
+        : status === "taken"
+          ? "bg-bad text-white"
+          : status === "unknown"
+            ? "bg-warn text-[#3a2a00]"
+            : "border border-line bg-transparent text-ink-2 animate-pulse";
   const href =
     status === "available"
       ? buyUrl(REGISTRARS[0], domain)
-      : status === "taken"
-        ? whoisUrl(domain)
-        : undefined;
+      : status === "forsale"
+        ? listing?.url
+        : status === "taken"
+          ? whoisUrl(domain)
+          : undefined;
+  const title =
+    status === "available"
+      ? `Register ${domain} at ${REGISTRARS[0].name}`
+      : status === "forsale" && listing
+        ? `${formatPrice(listing)} — ${MARKET_NAMES[listing.market] ?? listing.market}`
+        : `WHOIS for ${domain}`;
 
   return (
     <span
@@ -545,17 +597,21 @@ function DomainChip({
           target="_blank"
           rel="sponsored noopener nofollow"
           aria-label={domain}
-          title={
-            status === "available"
-              ? `Register ${domain} at ${REGISTRARS[0].name}`
-              : `WHOIS for ${domain}`
-          }
+          title={title}
           onClick={() =>
-            track("registrar_click", { domain, status, placement: "chip" })
+            track("registrar_click", {
+              domain,
+              status,
+              market: listing?.market,
+              placement: "chip",
+            })
           }
           className="py-1 pl-2 font-mono hover:opacity-90"
         >
           {domain}
+          {status === "forsale" && listing && (
+            <span className="ml-1.5 font-sans opacity-90">{formatPrice(listing)}</span>
+          )}
         </a>
       ) : (
         <span className="py-1 pl-2 font-mono">{domain}</span>
@@ -626,6 +682,7 @@ function ResultRow({
 }) {
   const meta = STATUS_META[result.status];
   const isAvailable = result.status === "available";
+  const listing = result.status === "forsale" ? result.listing : undefined;
   const isConfirmed = result.source === "rdap";
 
   return (
@@ -653,10 +710,51 @@ function ResultRow({
         >
           {result.domain}
         </a>
+      ) : listing ? (
+        <a
+          href={listing.url}
+          target="_blank"
+          rel="noopener noreferrer sponsored"
+          title={`${formatPrice(listing)} at ${MARKET_NAMES[listing.market] ?? listing.market}`}
+          onClick={() =>
+            track("registrar_click", {
+              domain: result.domain,
+              status: result.status,
+              market: listing.market,
+              placement: "row",
+            })
+          }
+          className="min-w-0 flex-1 break-all font-mono text-sm text-ink hover:text-sale-text hover:underline"
+        >
+          {result.domain}
+        </a>
       ) : (
         <span className="min-w-0 flex-1 break-all font-mono text-sm text-ink">
           {result.domain}
         </span>
+      )}
+
+      {listing && (
+        <a
+          href={listing.url}
+          target="_blank"
+          rel="noopener noreferrer sponsored"
+          onClick={() =>
+            track("registrar_click", {
+              domain: result.domain,
+              status: result.status,
+              market: listing.market,
+              placement: "row-price",
+            })
+          }
+          className="shrink-0 text-sm font-semibold text-sale-text hover:underline"
+          title={`${LISTING_TYPE_LABEL[listing.type]} · ${MARKET_NAMES[listing.market] ?? listing.market}`}
+        >
+          {formatPrice(listing)}
+          <span className="ml-1 font-normal text-ink-3">
+            {LISTING_TYPE_LABEL[listing.type]}
+          </span>
+        </a>
       )}
 
       <span
@@ -699,7 +797,7 @@ function ResultRow({
         </span>
       )}
 
-      {!isConfirmed && result.status !== "taken" && (
+      {!isConfirmed && (result.status === "available" || result.status === "unknown") && (
         <button
           onClick={onVerify}
           disabled={verifying}

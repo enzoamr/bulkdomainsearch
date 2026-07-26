@@ -1,8 +1,10 @@
 import { Resolver } from "node:dns/promises";
 
+import { aftermarketLookup } from "./aftermarket-index";
 import { splitRegistrable } from "./domains";
+import { sedoLookup } from "./sedo";
 import { zoneLookup } from "./zone-index";
-import type { CheckResult, DomainStatus } from "./types";
+import type { CheckResult, CheckSource, DomainStatus, Listing } from "./types";
 
 /**
  * Availability check, fastest tier first — the approach from Instant Domain
@@ -124,14 +126,14 @@ async function checkDoh(domain: string): Promise<DomainStatus | null> {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-export async function checkDomain(domain: string): Promise<CheckResult> {
-  const started = Date.now();
+/** Resolve raw availability through the zone → DNS → DoH tiers. */
+async function resolveAvailability(
+  domain: string,
+): Promise<{ status: DomainStatus; source: CheckSource }> {
   const { sld, tld } = splitRegistrable(domain);
 
   const zoneVerdict = await zoneLookup(sld, tld);
-  if (zoneVerdict) {
-    return { domain, status: zoneVerdict, source: "zone", ms: Date.now() - started };
-  }
+  if (zoneVerdict) return { status: zoneVerdict, source: "zone" };
 
   // Up to two passes over native DNS then DoH; the second pass backs off
   // briefly first, which is usually enough to clear a resolver rate limit.
@@ -139,15 +141,32 @@ export async function checkDomain(domain: string): Promise<CheckResult> {
     if (attempt > 0) await sleep(250 + Math.floor(Math.random() * 250));
 
     const nativeVerdict = await checkNative(domain);
-    if (nativeVerdict) {
-      return { domain, status: nativeVerdict, source: "dns", ms: Date.now() - started };
-    }
+    if (nativeVerdict) return { status: nativeVerdict, source: "dns" };
 
     const dohVerdict = await checkDoh(domain);
-    if (dohVerdict) {
-      return { domain, status: dohVerdict, source: "doh", ms: Date.now() - started };
+    if (dohVerdict) return { status: dohVerdict, source: "doh" };
+  }
+
+  return { status: "unknown", source: "dns" };
+}
+
+/** A registered domain may still be for sale — the blue tier. */
+async function findListing(domain: string): Promise<Listing | null> {
+  const local = await aftermarketLookup(domain);
+  if (local) return local;
+  return sedoLookup(domain); // inert unless Sedo credentials are configured.
+}
+
+export async function checkDomain(domain: string): Promise<CheckResult> {
+  const started = Date.now();
+  const { status, source } = await resolveAvailability(domain);
+
+  if (status === "taken") {
+    const listing = await findListing(domain);
+    if (listing) {
+      return { domain, status: "forsale", source, ms: Date.now() - started, listing };
     }
   }
 
-  return { domain, status: "unknown", source: "dns", ms: Date.now() - started };
+  return { domain, status, source, ms: Date.now() - started };
 }

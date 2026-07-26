@@ -60,3 +60,15 @@ const WHOIS_TEMPLATE =
 export function whoisUrl(domain: string): string {
   return WHOIS_TEMPLATE.replace("{domain}", encodeURIComponent(domain));
 }
+
+/**
+ * Sedo aftermarket offer link. Add NEXT_PUBLIC_SEDO_CAMPAIGN_ID (from your
+ * free Sedo Partner Program account) to attribute referred sales to you and
+ * earn commission; without it the link still works, just untracked.
+ */
+export function sedoOfferUrl(domain: string): string {
+  const campaignId = process.env.NEXT_PUBLIC_SEDO_CAMPAIGN_ID;
+  const params = new URLSearchParams({ language: "us", domain });
+  if (campaignId) params.set("campaignId", campaignId);
+  return `https://sedo.com/checkdomainoffer.php?${params}`;
+}
