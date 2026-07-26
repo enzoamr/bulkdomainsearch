@@ -609,9 +609,6 @@ function DomainChip({
           className="py-1 pl-2 font-mono hover:opacity-90"
         >
           {domain}
-          {status === "forsale" && listing && (
-            <span className="ml-1.5 font-sans opacity-90">{formatPrice(listing)}</span>
-          )}
         </a>
       ) : (
         <span className="py-1 pl-2 font-mono">{domain}</span>
