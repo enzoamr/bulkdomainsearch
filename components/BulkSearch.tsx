@@ -29,7 +29,7 @@ function formatPrice(listing: Listing): string {
 }
 
 const VISIBLE_LIMIT = 400;
-const CHIP_CAP = 100;
+const CHIP_CAP = 20;
 // Bare names get this TLD silently — people who want another extension type it.
 const DEFAULT_TLDS = ["com"] as const;
 
