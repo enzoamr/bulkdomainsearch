@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { track } from "@/lib/analytics";
 import { MAX_DOMAINS, parseInput } from "@/lib/domains";
@@ -48,15 +48,6 @@ const EXAMPLE_INPUT = [
 
 type SortBy = "order" | "az" | "len";
 type Filter = "all" | DomainStatus;
-
-const STATUS_META: Record<
-  DomainStatus,
-  { label: string; dotClass: string; textClass: string }
-> = {
-  available: { label: "Available", dotClass: "bg-good", textClass: "text-good-text" },
-  forsale: { label: "For sale", dotClass: "bg-sale", textClass: "text-sale-text" },
-  taken: { label: "Taken", dotClass: "bg-bad", textClass: "text-bad-text" },
-};
 
 export default function BulkSearch() {
   const [domains, setDomains] = useState<string[]>([]);
@@ -267,6 +258,22 @@ export default function BulkSearch() {
     track("view_results", { count: domainsRef.current.length });
   }, [unchecked, checkNew]);
 
+  // The results view is a full-screen overlay: freeze the page scroll behind
+  // it and let Escape close it.
+  useEffect(() => {
+    if (view !== "results") return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setView("compose");
+    };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = prev;
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [view]);
+
   const visible = useMemo(() => {
     let list = [...results.values()];
     if (filter !== "all") list = list.filter((r) => r.status === filter);
@@ -355,12 +362,12 @@ export default function BulkSearch() {
 
   if (view === "results") {
     return (
-      <div className="w-full max-w-5xl mx-auto px-4">
-        {/* Results header */}
-        <div className="flex flex-wrap items-center gap-3">
+      <div className="fixed inset-0 z-50 flex flex-col bg-[#0b0b0b] text-white">
+        {/* Top bar */}
+        <div className="flex items-center gap-2 border-b border-white/10 px-3 py-2.5 sm:px-5">
           <button
             onClick={() => setView("compose")}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-line px-3 py-1.5 text-sm font-medium text-ink-2 transition-colors hover:border-ink-3"
+            className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium text-white/80 transition-colors hover:bg-white/10 hover:text-white"
           >
             <svg
               width="16"
@@ -373,48 +380,24 @@ export default function BulkSearch() {
               strokeLinejoin="round"
               aria-hidden="true"
             >
-              <path d="m12 19-7-7 7-7" />
-              <path d="M19 12H5" />
+              <path d="m15 18-6-6 6-6" />
             </svg>
-            New search
+            New bulk search
           </button>
-          <div className="min-w-0">
-            <div className="text-sm font-semibold text-ink">
-              {domains.length.toLocaleString()} domain{domains.length === 1 ? "" : "s"} searched
-            </div>
-            {checking.size > 0 && (
-              <div className="text-xs tabular-nums text-ink-3">
-                Checking… {results.size.toLocaleString()} / {domains.length.toLocaleString()}
-              </div>
-            )}
-          </div>
           <div className="flex-1" />
           {checking.size > 0 && (
             <button
               onClick={stopChecking}
-              className="rounded-lg border border-line px-3 py-1.5 text-sm font-medium text-ink-2 hover:border-ink-3"
+              className="rounded-lg border border-white/15 px-3 py-1.5 text-sm font-medium text-white/80 hover:bg-white/10"
             >
               Stop
             </button>
           )}
-          <button
-            onClick={copyAvailable}
-            disabled={counts.available === 0}
-            className="rounded-lg border border-line px-3 py-1.5 text-sm text-ink-2 hover:border-ink-3 disabled:opacity-40"
-          >
-            {copied ? "Copied ✓" : "Copy available"}
-          </button>
-          <button
-            onClick={exportCsv}
-            className="rounded-lg border border-line px-3 py-1.5 text-sm text-ink-2 hover:border-ink-3"
-          >
-            Export CSV
-          </button>
         </div>
 
-        {/* Progress */}
+        {/* Thin progress line while checks stream in */}
         {checking.size > 0 && (
-          <div className="mt-4 h-0.5 w-full overflow-hidden rounded-full bg-line">
+          <div className="h-0.5 w-full overflow-hidden bg-white/10">
             <div
               className="h-full bg-accent transition-[width] duration-200"
               style={{
@@ -424,85 +407,149 @@ export default function BulkSearch() {
           </div>
         )}
 
-        {/* Filter tiles */}
-        <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <StatTile
-            label="Total"
-            value={domains.length}
-            active={filter === "all"}
-            onClick={() => setFilter("all")}
-          />
-          <StatTile
-            label="Available"
-            value={counts.available}
-            dotClass="bg-good"
-            active={filter === "available"}
-            onClick={() => setFilter("available")}
-          />
-          <StatTile
-            label="For sale"
-            value={counts.forsale}
-            dotClass="bg-sale"
-            active={filter === "forsale"}
-            onClick={() => setFilter("forsale")}
-          />
-          <StatTile
-            label="Taken"
-            value={counts.taken}
-            dotClass="bg-bad"
-            active={filter === "taken"}
-            onClick={() => setFilter("taken")}
-          />
-        </div>
+        <div className="flex min-h-0 flex-1">
+          {/* Sidebar */}
+          <aside className="hidden w-64 shrink-0 flex-col overflow-y-auto border-r border-white/10 px-4 py-5 md:flex">
+            <div className="px-2 text-xs font-semibold uppercase tracking-wide text-white/40">
+              Display
+            </div>
+            <nav className="mt-2 space-y-1">
+              <SideFilter
+                label="All domains"
+                count={domains.length}
+                barClass="bg-white/60"
+                active={filter === "all"}
+                onClick={() => setFilter("all")}
+              />
+              <SideFilter
+                label="Available"
+                count={counts.available}
+                barClass="bg-good"
+                active={filter === "available"}
+                onClick={() => setFilter("available")}
+              />
+              <SideFilter
+                label="For sale"
+                count={counts.forsale}
+                barClass="bg-sale"
+                active={filter === "forsale"}
+                onClick={() => setFilter("forsale")}
+              />
+              <SideFilter
+                label="Taken"
+                count={counts.taken}
+                barClass="bg-bad"
+                active={filter === "taken"}
+                onClick={() => setFilter("taken")}
+              />
+            </nav>
 
-        {/* Filter / sort controls */}
-        <div className="mt-5 flex flex-wrap items-center gap-2">
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Filter results…"
-            className="w-44 rounded-lg border border-line bg-surface px-3 py-1.5 text-sm text-ink placeholder:text-ink-3 focus:outline-none focus:border-accent"
-          />
-          <select
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value as SortBy)}
-            className="rounded-lg border border-line bg-surface px-2 py-1.5 text-sm text-ink-2 focus:outline-none"
-          >
-            <option value="order">Sort: as checked</option>
-            <option value="az">Sort: A → Z</option>
-            <option value="len">Sort: shortest first</option>
-          </select>
-        </div>
-
-        {/* Results grid — two columns like IDS */}
-        <div className="mt-4 grid grid-cols-1 gap-2.5 md:grid-cols-2">
-          {shown.map((r) => (
-            <ResultCard
-              key={r.domain}
-              result={r}
-              verifying={verifying.has(r.domain)}
-              onVerify={() => verify(r.domain)}
+            <div className="mt-7 px-2 text-xs font-semibold uppercase tracking-wide text-white/40">
+              Filters
+            </div>
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Filter results…"
+              className="mt-2 w-full rounded-lg border border-white/15 bg-transparent px-3 py-1.5 text-sm text-white placeholder:text-white/35 focus:border-accent focus:outline-none"
             />
-          ))}
-          {shownPending.map((d) => (
-            <PendingCard key={d} domain={d} />
-          ))}
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as SortBy)}
+              className="mt-2 w-full rounded-lg border border-white/15 bg-[#0b0b0b] px-2 py-1.5 text-sm text-white/80 focus:outline-none"
+            >
+              <option value="order">Sort: as checked</option>
+              <option value="az">Sort: A → Z</option>
+              <option value="len">Sort: shortest first</option>
+            </select>
+
+            <div className="mt-auto space-y-1.5 pt-8">
+              <button
+                onClick={copyAvailable}
+                disabled={counts.available === 0}
+                className="w-full rounded-lg border border-white/15 px-3 py-1.5 text-left text-sm text-white/80 hover:bg-white/10 disabled:opacity-40"
+              >
+                {copied ? "Copied ✓" : "Copy available"}
+              </button>
+              <button
+                onClick={exportCsv}
+                className="w-full rounded-lg border border-white/15 px-3 py-1.5 text-left text-sm text-white/80 hover:bg-white/10"
+              >
+                Export results
+              </button>
+            </div>
+          </aside>
+
+          {/* Results */}
+          <main className="min-w-0 flex-1 overflow-y-auto px-4 py-5 sm:px-8">
+            <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+              <h2 className="text-base font-semibold">
+                {domains.length.toLocaleString()} domain
+                {domains.length === 1 ? "" : "s"} searched
+              </h2>
+              {checking.size > 0 && (
+                <span className="text-xs tabular-nums text-white/40">
+                  {results.size.toLocaleString()} / {domains.length.toLocaleString()} checked
+                </span>
+              )}
+            </div>
+
+            {/* Mobile filter chips — the sidebar is hidden below md */}
+            <div className="mt-3 flex gap-2 overflow-x-auto pb-1 md:hidden">
+              {(
+                [
+                  { key: "all", label: "All", count: domains.length, dot: "bg-white/60" },
+                  { key: "available", label: "Available", count: counts.available, dot: "bg-good" },
+                  { key: "forsale", label: "For sale", count: counts.forsale, dot: "bg-sale" },
+                  { key: "taken", label: "Taken", count: counts.taken, dot: "bg-bad" },
+                ] as const
+              ).map((f) => (
+                <button
+                  key={f.key}
+                  onClick={() => setFilter(f.key)}
+                  className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1 text-xs ${
+                    filter === f.key
+                      ? "border-accent text-white"
+                      : "border-white/15 text-white/70"
+                  }`}
+                >
+                  <span className={`h-1.5 w-1.5 rounded-full ${f.dot}`} />
+                  {f.label} {f.count.toLocaleString()}
+                </button>
+              ))}
+            </div>
+
+            <div className="mt-4 grid grid-cols-1 gap-x-10 lg:grid-cols-2">
+              {shown.map((r) => (
+                <ResultLine
+                  key={r.domain}
+                  result={r}
+                  verifying={verifying.has(r.domain)}
+                  onVerify={() => verify(r.domain)}
+                />
+              ))}
+              {shownPending.map((d) => (
+                <PendingLine key={d} domain={d} />
+              ))}
+            </div>
+
+            {visible.length === 0 && pending.length === 0 && (
+              <div className="mt-10 text-center text-sm text-white/40">
+                Nothing matches this filter.
+              </div>
+            )}
+
+            {!showAll &&
+              visible.length + pending.length > shown.length + shownPending.length && (
+                <button
+                  onClick={() => setShowAll(true)}
+                  className="mt-5 w-full rounded-lg border border-white/15 py-2 text-sm text-white/70 hover:bg-white/10"
+                >
+                  Show all {(visible.length + pending.length).toLocaleString()} results
+                </button>
+              )}
+          </main>
         </div>
-
-        {visible.length === 0 && pending.length === 0 && (
-          <div className="mt-4 rounded-2xl border border-line bg-surface px-4 py-10 text-center text-sm text-ink-3">
-            Nothing matches this filter.
-          </div>
-        )}
-
-        {!showAll && visible.length + pending.length > shown.length + shownPending.length && (
-          <button
-            onClick={() => setShowAll(true)}
-            className="mt-4 w-full rounded-lg border border-line py-2 text-sm text-ink-2 hover:border-ink-3"
-          >
-            Show all {(visible.length + pending.length).toLocaleString()} results
-          </button>
-        )}
 
         {hiddenInput}
       </div>
@@ -735,50 +782,50 @@ function DomainChip({
   );
 }
 
-function StatTile({
+function SideFilter({
   label,
-  value,
-  dotClass,
+  count,
+  barClass,
   active,
   onClick,
 }: {
   label: string;
-  value: number;
-  dotClass?: string;
+  count: number;
+  barClass: string;
   active: boolean;
   onClick: () => void;
 }) {
   return (
     <button
       onClick={onClick}
-      className={`rounded-xl border bg-surface p-3.5 text-left transition-colors ${
-        active ? "border-accent" : "border-line hover:border-ink-3"
+      className={`flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left text-sm transition-colors ${
+        active
+          ? "bg-white/10 text-white"
+          : "text-white/70 hover:bg-white/5 hover:text-white"
       }`}
     >
-      <div className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-ink-2">
-        {dotClass && <span className={`h-2 w-2 rounded-full ${dotClass}`} />}
-        {label}
-      </div>
-      <div className="mt-1 text-2xl font-semibold text-ink">
-        {value.toLocaleString()}
-      </div>
+      <span className={`h-4 w-1 shrink-0 rounded-full ${barClass}`} />
+      <span className="flex-1">{label}</span>
+      <span className="text-xs tabular-nums text-white/40">
+        {count.toLocaleString()}
+      </span>
     </button>
   );
 }
 
-function PendingCard({ domain }: { domain: string }) {
+function PendingLine({ domain }: { domain: string }) {
   return (
-    <div className="flex items-center gap-3 rounded-xl border border-line bg-surface px-3.5 py-3">
-      <span className="h-7 w-1 shrink-0 animate-pulse rounded-full bg-line" />
-      <span className="min-w-0 flex-1 truncate font-mono text-sm text-ink-3">
+    <div className="flex min-w-0 items-center gap-3 border-b border-white/10 py-2.5">
+      <span className="h-6 w-1 shrink-0 animate-pulse rounded-full bg-white/20" />
+      <span className="min-w-0 flex-1 truncate font-mono text-sm text-white/40">
         {domain}
       </span>
-      <span className="shrink-0 text-xs text-ink-3">Checking…</span>
+      <span className="shrink-0 text-xs text-white/30">Checking…</span>
     </div>
   );
 }
 
-function ResultCard({
+function ResultLine({
   result,
   verifying,
   onVerify,
@@ -787,79 +834,71 @@ function ResultCard({
   verifying: boolean;
   onVerify: () => void;
 }) {
-  const meta = STATUS_META[result.status];
   const isAvailable = result.status === "available";
   const listing = result.status === "forsale" ? result.listing : undefined;
   const isConfirmed = result.source === "rdap";
 
+  const bar = isAvailable ? "bg-good" : listing ? "bg-sale" : "bg-bad";
   const href = isAvailable
     ? buyUrl(REGISTRARS[0], result.domain)
     : listing
       ? listing.url
       : whoisUrl(result.domain);
-  const domainHover = isAvailable
-    ? "hover:text-accent"
-    : listing
-      ? "hover:text-sale-text"
-      : "hover:text-ink";
   const title = isAvailable
     ? `Register ${result.domain} at ${REGISTRARS[0].name}`
     : listing
       ? `${formatPrice(listing)} · ${LISTING_TYPE_LABEL[listing.type]} at ${MARKET_NAMES[listing.market] ?? listing.market}`
       : `WHOIS for ${result.domain}`;
+  const onClickTrack = () =>
+    track("registrar_click", {
+      domain: result.domain,
+      status: result.status,
+      registrar: isAvailable ? REGISTRARS[0].id : undefined,
+      market: listing?.market,
+      placement: "grid",
+    });
 
   return (
-    <div className="flex items-center gap-3 rounded-xl border border-line bg-surface px-3.5 py-3 transition-colors hover:border-ink-3">
-      <span
-        className={`h-7 w-1 shrink-0 rounded-full ${meta.dotClass}`}
-        title={meta.label}
-      />
+    <div className="group flex min-w-0 items-center gap-3 border-b border-white/10 py-2.5">
+      <span className={`h-6 w-1 shrink-0 rounded-full ${bar}`} />
       <a
         href={href}
         target="_blank"
         rel="noopener noreferrer sponsored nofollow"
         title={title}
-        onClick={() =>
-          track("registrar_click", {
-            domain: result.domain,
-            status: result.status,
-            registrar: isAvailable ? REGISTRARS[0].id : undefined,
-            market: listing?.market,
-            placement: "grid",
-          })
-        }
-        className={`min-w-0 flex-1 truncate font-mono text-sm text-ink hover:underline ${domainHover}`}
+        onClick={onClickTrack}
+        className="min-w-0 flex-1 truncate font-mono text-sm text-white hover:underline"
       >
         {result.domain}
       </a>
 
-      {listing ? (
-        <span className="shrink-0 text-right">
-          <span className="text-sm font-semibold text-sale-text">
-            {formatPrice(listing)}
-          </span>
-          <span className="ml-1.5 text-[11px] text-ink-3">
-            {LISTING_TYPE_LABEL[listing.type]}
-          </span>
-        </span>
-      ) : isAvailable ? (
-        <span className="inline-flex shrink-0 items-center gap-1.5 text-xs font-medium text-good-text">
-          <span className="h-1.5 w-1.5 rounded-full bg-good" />
-          Available{isConfirmed ? " ✓" : ""}
-        </span>
-      ) : (
-        <span className="inline-flex shrink-0 items-center gap-1.5 text-xs font-medium text-bad-text">
-          <span className="h-1.5 w-1.5 rounded-full bg-bad" />
-          Taken
-        </span>
-      )}
+      <a
+        href={href}
+        target="_blank"
+        rel="noopener noreferrer sponsored nofollow"
+        title={title}
+        onClick={onClickTrack}
+        className={`shrink-0 text-sm font-medium hover:underline ${
+          isAvailable
+            ? "text-green-400"
+            : listing
+              ? "text-blue-400"
+              : "text-red-400"
+        }`}
+      >
+        {isAvailable
+          ? `Register${isConfirmed ? " ✓" : ""}`
+          : listing
+            ? formatPrice(listing)
+            : "Lookup"}
+      </a>
 
       {isAvailable && !isConfirmed && (
         <button
           onClick={onVerify}
           disabled={verifying}
           title="Confirm against the registry via RDAP"
-          className="shrink-0 rounded border border-line px-2 py-0.5 text-xs text-ink-2 hover:border-ink-3 disabled:opacity-50"
+          className="shrink-0 rounded border border-white/15 px-2 py-0.5 text-xs text-white/60 hover:bg-white/10 disabled:opacity-50"
         >
           {verifying ? "…" : "Verify"}
         </button>
