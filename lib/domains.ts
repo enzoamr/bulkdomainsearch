@@ -1,3 +1,5 @@
+import { isValidTld } from "./tlds";
+
 export const MAX_DOMAINS = 5000;
 
 export const EXPANDABLE_TLDS = [
@@ -37,8 +39,9 @@ export function isValidDomain(domain: string): boolean {
   const labels = domain.split(".");
   if (labels.length < 2) return false;
   if (!labels.every((l) => LABEL_RE.test(l))) return false;
-  // TLD must not be all-numeric.
-  return !/^[0-9]+$/.test(labels[labels.length - 1]);
+  // The extension must be a real, IANA-listed TLD — otherwise a bogus one
+  // (e.g. "enzo.dsahdsa") sails through DNS as NXDOMAIN and looks available.
+  return isValidTld(labels[labels.length - 1]);
 }
 
 /**
@@ -60,18 +63,33 @@ export function splitRegistrable(domain: string): { sld: string; tld: string } {
  */
 export function parseInput(input: string, expandTlds: readonly string[]): string[] {
   const out = new Set<string>();
+
+  // Expand a bare name over the chosen extensions ("enzo" → "enzo.com", …).
+  const expand = (name: string) => {
+    for (const tld of expandTlds) {
+      if (out.size >= MAX_DOMAINS) return;
+      const candidate = `${name}.${tld}`;
+      if (isValidDomain(candidate)) out.add(candidate);
+    }
+  };
+
   for (const token of input.split(/[\s,;"']+/)) {
     if (out.size >= MAX_DOMAINS) break;
     const norm = normalizeToken(token);
     if (!norm) continue;
-    if (norm.includes(".")) {
+
+    const dot = norm.lastIndexOf(".");
+    if (dot === -1) {
+      // Bare keyword.
+      expand(norm);
+    } else if (isValidTld(norm.slice(dot + 1))) {
+      // Real extension — keep the domain as typed.
       if (isValidDomain(norm)) out.add(norm);
     } else {
-      for (const tld of expandTlds) {
-        if (out.size >= MAX_DOMAINS) break;
-        const candidate = `${norm}.${tld}`;
-        if (isValidDomain(candidate)) out.add(candidate);
-      }
+      // Bogus extension (e.g. "enzo.dsahdsa"): treat the part before it as a
+      // bare name and expand it, so it never gets checked as a real domain.
+      const base = norm.slice(0, dot);
+      if (base) expand(base);
     }
   }
   return [...out];
