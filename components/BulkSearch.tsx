@@ -104,13 +104,20 @@ export default function BulkSearch() {
   const controllersRef = useRef<Set<AbortController>>(new Set());
   const inputRef = useRef<HTMLInputElement | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
+  // Coalescing queue: rapid typing commits one chip at a time, and a request
+  // per chip trips the per-IP rate limit. Chips added within the window ride
+  // in one batched request instead.
+  const queueRef = useRef<string[]>([]);
+  const flushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Bumped by Stop/Clear so scheduled retries from before are dropped.
+  const genRef = useRef(0);
 
-  const checkNew = useCallback(async (list: string[]) => {
-    if (list.length === 0) return;
+  const runCheck = useCallback(async (list: string[], attempt = 0) => {
+    const gen = genRef.current;
     const controller = new AbortController();
     controllersRef.current.add(controller);
-    setChecking((prev) => new Set([...prev, ...list]));
     const started = performance.now();
+    let retryScheduled = false;
 
     try {
       const res = await fetch("/api/check", {
@@ -119,6 +126,22 @@ export default function BulkSearch() {
         body: JSON.stringify({ domains: list }),
         signal: controller.signal,
       });
+
+      // Rate limited: keep the batch, honor retry-after, resend. The domains
+      // stay in "checking" so the UI keeps pulsing instead of dropping them.
+      if (res.status === 429 && attempt < 4) {
+        const sec = parseInt(res.headers.get("retry-after") ?? "", 10);
+        const delay = (Number.isFinite(sec) && sec > 0 ? sec : 2) * 1000;
+        retryScheduled = true;
+        setTimeout(
+          () => {
+            if (gen === genRef.current) runCheck(list, attempt + 1);
+          },
+          delay + Math.floor(Math.random() * 400),
+        );
+        return;
+      }
+
       if (!res.ok || !res.body) throw new Error(`check failed: ${res.status}`);
 
       const reader = res.body.getReader();
@@ -162,13 +185,31 @@ export default function BulkSearch() {
       // Aborted or network failure; leftover "checking" state clears below.
     } finally {
       controllersRef.current.delete(controller);
-      setChecking((prev) => {
-        const next = new Set(prev);
-        for (const d of list) next.delete(d);
-        return next;
-      });
+      if (!retryScheduled) {
+        setChecking((prev) => {
+          const next = new Set(prev);
+          for (const d of list) next.delete(d);
+          return next;
+        });
+      }
     }
   }, []);
+
+  const checkNew = useCallback(
+    (list: string[]) => {
+      if (list.length === 0) return;
+      setChecking((prev) => new Set([...prev, ...list]));
+      queueRef.current.push(...list);
+      if (flushTimerRef.current != null) return;
+      flushTimerRef.current = setTimeout(() => {
+        flushTimerRef.current = null;
+        const batch = [...new Set(queueRef.current)];
+        queueRef.current = [];
+        if (batch.length > 0) runCheck(batch);
+      }, 300);
+    },
+    [runCheck],
+  );
 
   const addDomains = useCallback(
     (list: string[], method: string) => {
@@ -210,9 +251,19 @@ export default function BulkSearch() {
     track("domain_removed", { total: domainsRef.current.length });
   }, []);
 
-  const clearAll = useCallback(() => {
+  const cancelPending = useCallback(() => {
+    genRef.current++;
+    if (flushTimerRef.current != null) {
+      clearTimeout(flushTimerRef.current);
+      flushTimerRef.current = null;
+    }
+    queueRef.current = [];
     for (const c of controllersRef.current) c.abort();
     controllersRef.current.clear();
+  }, []);
+
+  const clearAll = useCallback(() => {
+    cancelPending();
     domainsRef.current = [];
     setDomains([]);
     setResults(new Map());
@@ -223,13 +274,12 @@ export default function BulkSearch() {
     setTldFilter(new Set());
     setPriceRange([0, 100]);
     setOpenPanel(null);
-  }, []);
+  }, [cancelPending]);
 
   const stopChecking = useCallback(() => {
-    for (const c of controllersRef.current) c.abort();
-    controllersRef.current.clear();
+    cancelPending();
     setChecking(new Set());
-  }, []);
+  }, [cancelPending]);
 
   const commitDraft = useCallback(
     (method: string) => {

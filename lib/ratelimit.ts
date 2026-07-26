@@ -17,7 +17,9 @@ interface Window {
 }
 
 const WINDOW_MS = 10_000;
-const MAX_REQUESTS = 8;
+// Generous enough for a human adding domains one by one (the client also
+// batches keystrokes into grouped requests); still a wall for scrapers.
+const MAX_REQUESTS = 30;
 
 const windows = new Map<string, Window>();
 let lastSweep = 0;
