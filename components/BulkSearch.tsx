@@ -28,6 +28,40 @@ function formatPrice(listing: Listing): string {
   return symbol ? `${symbol}${amount}` : `${amount} ${listing.currency}`;
 }
 
+/**
+ * Map a 0–100 slider position onto the [extent.lo, extent.hi] price range on
+ * a log scale, so cheap closeouts and seven-figure listings are both easy to
+ * land on. Values are rounded to two significant digits.
+ */
+function sliderToPrice(
+  t: number,
+  extent: { lo: number; hi: number },
+): number {
+  if (t <= 0 || extent.hi <= extent.lo) return extent.lo;
+  if (t >= 100) return extent.hi;
+  const lo = Math.max(1, extent.lo);
+  const raw = Math.exp(
+    Math.log(lo) + (t / 100) * (Math.log(extent.hi) - Math.log(lo)),
+  );
+  const mag = 10 ** Math.max(0, Math.floor(Math.log10(raw)) - 1);
+  return Math.round(raw / mag) * mag;
+}
+
+function fmtCompactPrice(v: number): string {
+  const trim = (n: number) =>
+    Number.isInteger(n) ? String(n) : n.toFixed(1).replace(/\.0$/, "");
+  if (v >= 1_000_000) return `${trim(v / 1_000_000)}M`;
+  if (v >= 1_000) return `${trim(v / 1_000)}K`;
+  return String(v);
+}
+
+// Overlaid native range inputs: the track is drawn separately, each input only
+// contributes a grabbable thumb.
+const RANGE_THUMB_CLASS =
+  "pointer-events-none absolute inset-0 h-4 w-full appearance-none bg-transparent " +
+  "[&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:shadow-[0_0_0_2px_rgba(0,0,0,0.6)] " +
+  "[&::-moz-range-thumb]:pointer-events-auto [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-white";
+
 const VISIBLE_LIMIT = 400;
 const CHIP_CAP = 20;
 // Bare names get this TLD silently — people who want another extension type it.
@@ -62,8 +96,9 @@ export default function BulkSearch() {
   const [copied, setCopied] = useState(false);
   const [view, setView] = useState<"compose" | "results">("compose");
   const [tldFilter, setTldFilter] = useState<Set<string>>(new Set());
-  const [priceMin, setPriceMin] = useState("");
-  const [priceMax, setPriceMax] = useState("");
+  // Slider positions 0–100 on a log scale between PRICE_MIN and PRICE_MAX;
+  // [0, 100] means "no price filter".
+  const [priceRange, setPriceRange] = useState<[number, number]>([0, 100]);
   const [openPanel, setOpenPanel] = useState<"tlds" | "price" | null>(null);
 
   const domainsRef = useRef<string[]>([]);
@@ -187,8 +222,7 @@ export default function BulkSearch() {
     setFilter("all");
     setQuery("");
     setTldFilter(new Set());
-    setPriceMin("");
-    setPriceMax("");
+    setPriceRange([0, 100]);
     setOpenPanel(null);
   }, []);
 
@@ -295,14 +329,29 @@ export default function BulkSearch() {
     return [...m.entries()].sort((a, b) => b[1] - a[1]);
   }, [domains]);
 
+  // Lowest and highest listing price present in the current results — the
+  // slider's endpoints track what's actually there.
+  const priceExtent = useMemo(() => {
+    let lo = Infinity;
+    let hi = -Infinity;
+    for (const r of results.values()) {
+      const p = r.listing?.price;
+      if (p != null) {
+        if (p < lo) lo = p;
+        if (p > hi) hi = p;
+      }
+    }
+    return lo === Infinity ? null : { lo, hi };
+  }, [results]);
+
   const priceBounds = useMemo(() => {
-    const min = parseFloat(priceMin);
-    const max = parseFloat(priceMax);
+    if (!priceExtent) return { min: null, max: null };
+    const [lo, hi] = priceRange;
     return {
-      min: Number.isNaN(min) ? null : min,
-      max: Number.isNaN(max) ? null : max,
+      min: lo <= 0 ? null : sliderToPrice(lo, priceExtent),
+      max: hi >= 100 ? null : sliderToPrice(hi, priceExtent),
     };
-  }, [priceMin, priceMax]);
+  }, [priceRange, priceExtent]);
 
   const visible = useMemo(() => {
     let list = [...results.values()];
@@ -617,29 +666,72 @@ export default function BulkSearch() {
                   </svg>
                 }
               />
-              {openPanel === "price" && (
-                <div className="ml-9 flex items-center gap-2 py-1 pr-2">
-                  <input
-                    value={priceMin}
-                    onChange={(e) =>
-                      setPriceMin(e.target.value.replace(/[^0-9]/g, ""))
-                    }
-                    inputMode="numeric"
-                    placeholder="Min $"
-                    className="w-full min-w-0 rounded-md border border-white/15 bg-transparent px-2 py-1 text-sm text-white placeholder:text-white/35 focus:border-accent focus:outline-none"
-                  />
-                  <span className="text-white/30">–</span>
-                  <input
-                    value={priceMax}
-                    onChange={(e) =>
-                      setPriceMax(e.target.value.replace(/[^0-9]/g, ""))
-                    }
-                    inputMode="numeric"
-                    placeholder="Max $"
-                    className="w-full min-w-0 rounded-md border border-white/15 bg-transparent px-2 py-1 text-sm text-white placeholder:text-white/35 focus:border-accent focus:outline-none"
-                  />
-                </div>
-              )}
+              {openPanel === "price" &&
+                (priceExtent ? (
+                  <div className="mx-1 mt-1 rounded-xl border border-white/10 bg-white/5 px-3.5 py-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-semibold text-white">
+                        Filter by price
+                      </span>
+                      <button
+                        onClick={() => setPriceRange([0, 100])}
+                        className="text-xs text-white/50 hover:text-white"
+                      >
+                        Clear
+                      </button>
+                    </div>
+                    <div className="relative mt-4 h-4">
+                      <div className="absolute inset-x-0 top-1/2 h-1 -translate-y-1/2 rounded-full bg-white/15" />
+                      <div
+                        className="absolute top-1/2 h-1 -translate-y-1/2 rounded-full bg-white"
+                        style={{
+                          left: `${priceRange[0]}%`,
+                          right: `${100 - priceRange[1]}%`,
+                        }}
+                      />
+                      <input
+                        type="range"
+                        min={0}
+                        max={100}
+                        step={1}
+                        value={priceRange[0]}
+                        aria-label="Minimum price"
+                        onChange={(e) => {
+                          const v = Number(e.target.value);
+                          setPriceRange(([, hi]) => [Math.min(v, hi), hi]);
+                        }}
+                        style={{ zIndex: priceRange[0] > 90 ? 30 : 20 }}
+                        className={RANGE_THUMB_CLASS}
+                      />
+                      <input
+                        type="range"
+                        min={0}
+                        max={100}
+                        step={1}
+                        value={priceRange[1]}
+                        aria-label="Maximum price"
+                        onChange={(e) => {
+                          const v = Number(e.target.value);
+                          setPriceRange(([lo]) => [lo, Math.max(v, lo)]);
+                        }}
+                        style={{ zIndex: 25 }}
+                        className={RANGE_THUMB_CLASS}
+                      />
+                    </div>
+                    <div className="mt-2 flex items-center justify-between text-xs text-white/70">
+                      <span>
+                        Min: {fmtCompactPrice(priceBounds.min ?? priceExtent.lo)}
+                      </span>
+                      <span>
+                        Max: {fmtCompactPrice(priceBounds.max ?? priceExtent.hi)}
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="ml-9 py-1 pr-2 text-xs text-white/40">
+                    No priced listings yet.
+                  </div>
+                ))}
             </nav>
 
             <div className="mt-auto space-y-1.5 pt-8">
