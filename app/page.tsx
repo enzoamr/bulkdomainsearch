@@ -1,4 +1,5 @@
 import BulkSearch from "@/components/BulkSearch";
+import Landing from "@/components/Landing";
 import ThemeToggle from "@/components/ThemeToggle";
 
 export default function Home() {
@@ -30,6 +31,7 @@ export default function Home() {
           </p>
         </section>
         <BulkSearch />
+        <Landing />
       </main>
 
       <footer className="border-t border-line">
