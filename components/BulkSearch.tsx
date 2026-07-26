@@ -967,7 +967,7 @@ export default function BulkSearch() {
             {counts.taken.toLocaleString()} taken
           </span>
           <span className="flex-1" />
-          <span className="font-medium text-accent">View results →</span>
+          <span className="font-medium text-accent">View results</span>
         </button>
       )}
     </div>

@@ -1,4 +1,5 @@
 import BulkSearch from "@/components/BulkSearch";
+import ThemeToggle from "@/components/ThemeToggle";
 
 export default function Home() {
   return (
@@ -8,9 +9,12 @@ export default function Home() {
           <span className="text-sm font-semibold tracking-tight">
             bulk<span className="text-accent">domain</span>search
           </span>
-          <span className="hidden text-xs text-ink-3 sm:block">
-            Zone-file index · parallel DNS · RDAP
-          </span>
+          <div className="flex items-center gap-4">
+            <span className="hidden text-xs text-ink-3 sm:block">
+              Zone-file index · parallel DNS · RDAP
+            </span>
+            <ThemeToggle />
+          </div>
         </div>
       </header>
 

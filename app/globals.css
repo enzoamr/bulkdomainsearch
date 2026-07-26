@@ -19,8 +19,10 @@
   --sale-text: #1c5cab;
 }
 
+/* System preference applies unless the user picked a theme explicitly
+   (data-theme on <html>, set by the header toggle). */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     color-scheme: dark;
     --background: #0d0d0d;
     --surface: #1a1a19;
@@ -38,6 +40,25 @@
     --sale: #3987e5;
     --sale-text: #6da7ec;
   }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --background: #0d0d0d;
+  --surface: #1a1a19;
+  --ink: #ffffff;
+  --ink-2: #c3c2b7;
+  --ink-3: #898781;
+  --line: #2c2c2a;
+  --accent: #3987e5;
+  --good: #0ca30c;
+  --good-text: #2fbf2f;
+  --warn: #fab219;
+  --warn-text: #fab219;
+  --bad: #d03b3b;
+  --bad-text: #e66767;
+  --sale: #3987e5;
+  --sale-text: #6da7ec;
 }
 
 @theme inline {
