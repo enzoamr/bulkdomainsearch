@@ -30,21 +30,27 @@ un **stockage externe** que l'API interroge.
 `metadata.json` + fichiers zip quotidiens reconstruits ~14:30 UTC). Le script
 `scripts/godaddy-auctions-download.mjs` fonctionne tel quel.
 
-### Solution recommandée : Turso (SQLite hébergé) — ~0 €, 4,99 $/mo si gros volume
-Le mieux rapport simplicité/prix, et ça reste « proche » de Vercel (pas de
-serveur à gérer). Le client `@libsql/client` est en HTTP → parfait pour le
-serverless.
+### Solution recommandée : Turso (SQLite hébergé) — ✅ CODE FAIT, il reste 3 clics
+Le code est écrit et **testé de bout en bout** (`lib/aftermarket-store.ts`
+bascule auto : fichier local en dev, Turso en prod ; `scripts/turso-load.mjs`
+charge le feed ; `.github/workflows/aftermarket-sync.yml` le fait chaque nuit).
+`@libsql/client` est déjà auto-externalisé par Next → rien à configurer côté build.
 
+**Ce qu'il te reste à faire (10 min, ~gratuit) :**
 - 🧑 ☐ Créer un compte gratuit sur **turso.tech**, créer 1 base, copier
-  l'URL + le token → `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN`
-- 💻 ☐ Faire tourner l'ingestion nocturne dans une **GitHub Action** (gratuit,
-  2000 min/mois) planifiée après 15:30 UTC : elle lance le script de download,
-  puis `upsert` dans la table Turso `listings(domain TEXT PRIMARY KEY, data TEXT)`
-- 💻 ☐ Dans `app/api/check/route.ts`, remplacer `aftermarketLookup()` par un
-  `SELECT … WHERE domain = ?` sur Turso (même forme `Listing` en sortie)
-- ⚠️ Charger seulement les lignes modifiées chaque nuit (le `metadata.json`
-  dit quels fichiers ont changé) pour rester sous le plafond gratuit de 10M
-  écritures/mois.
+  l'URL + le token
+- 🧑 ☐ Les coller comme **secrets GitHub** du repo (*Settings → Secrets and
+  variables → Actions*) : `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN`
+- 🧑 ☐ Les coller aussi dans **Vercel** (*Settings → Environment Variables*) →
+  redéployer
+- 🧑 ☐ Lancer la GitHub Action une première fois à la main (onglet *Actions →
+  Sync aftermarket feed to Turso → Run workflow*) ; ensuite elle tourne toute
+  seule chaque nuit à 15:40 UTC
+
+Une fois ces 4 étapes faites, les ~354k annonces GoDaddy s'affichent en bleu
+sur ton site en ligne. ⚠️ ~350k lignes/nuit ≈ ~10M écritures/mois, soit le
+plafond gratuit Turso — si tu le dépasses, réduis la liste de fichiers dans
+`scripts/godaddy-auctions-download.mjs` ou prends le plan à 4,99 $/mo.
 
 ### Alternative : petit serveur toujours allumé (si tu préfères ne pas ré-architecturer)
 On garde `lib/aftermarket-index.ts` **tel quel** dans un mini-serveur Hono,

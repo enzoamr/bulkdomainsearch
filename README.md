@@ -67,6 +67,14 @@ back to DNS, so the app is fully functional with no zone data at all.
 the feed then show up blue with their price and a buy link — indexed locally,
 zero query-time latency, exactly like the zone files.
 
+**On Vercel** the in-memory index can't persist across serverless invocations,
+so the feed lives in Turso (hosted SQLite) instead: set `TURSO_DATABASE_URL` /
+`TURSO_AUTH_TOKEN` and the app reads listings from there (`lib/aftermarket-store.ts`
+falls back to the local file when Turso isn't configured, so dev needs nothing).
+The nightly `.github/workflows/aftermarket-sync.yml` Action downloads the feed
+and loads it via `scripts/turso-load.mjs`. See ROADMAP.md P1 for the 4-step
+setup.
+
 **Sedo — live for-sale prices, free affiliate revenue.** Join the free
 [Sedo Partner Program](https://sedo.com/us/services/sedos-partner-program/),
 then set `SEDO_PARTNER_ID` / `SEDO_SIGN_KEY` (for the `DomainStatus` API) and

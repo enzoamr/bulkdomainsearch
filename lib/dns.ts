@@ -1,6 +1,6 @@
 import { Resolver } from "node:dns/promises";
 
-import { aftermarketLookup } from "./aftermarket-index";
+import { lookupListing } from "./aftermarket-store";
 import { splitRegistrable } from "./domains";
 import { sedoLookup } from "./sedo";
 import { zoneLookup } from "./zone-index";
@@ -152,8 +152,8 @@ async function resolveAvailability(
 
 /** A registered domain may still be for sale — the blue tier. */
 async function findListing(domain: string): Promise<Listing | null> {
-  const local = await aftermarketLookup(domain);
-  if (local) return local;
+  const indexed = await lookupListing(domain); // Turso in prod, file index in dev.
+  if (indexed) return indexed;
   return sedoLookup(domain); // inert unless Sedo credentials are configured.
 }
 
