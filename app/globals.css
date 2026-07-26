@@ -2,21 +2,25 @@
 
 :root {
   color-scheme: light;
+  /* Accent hue: randomized before paint by an inline script in the layout —
+     a new neon color on every load. Everything accent- or sale-colored
+     derives from this one variable. */
+  --accent-h: 212;
   --background: #f9f9f7;
   --surface: #fcfcfb;
   --ink: #0b0b0b;
   --ink-2: #52514e;
   --ink-3: #898781;
   --line: #e1e0d9;
-  --accent: #2a78d6;
+  --accent: hsl(var(--accent-h) 95% 45%);
   --good: #0ca30c;
   --good-text: #006300;
   --warn: #fab219;
   --warn-text: #7a5200;
   --bad: #d03b3b;
   --bad-text: #a32626;
-  --sale: #2a78d6;
-  --sale-text: #1c5cab;
+  --sale: hsl(var(--accent-h) 95% 45%);
+  --sale-text: hsl(var(--accent-h) 90% 38%);
 }
 
 /* System preference applies unless the user picked a theme explicitly
@@ -30,15 +34,15 @@
     --ink-2: #c3c2b7;
     --ink-3: #898781;
     --line: #2c2c2a;
-    --accent: #3987e5;
+    --accent: hsl(var(--accent-h) 92% 60%);
     --good: #0ca30c;
     --good-text: #2fbf2f;
     --warn: #fab219;
     --warn-text: #fab219;
     --bad: #d03b3b;
     --bad-text: #e66767;
-    --sale: #3987e5;
-    --sale-text: #6da7ec;
+    --sale: hsl(var(--accent-h) 92% 60%);
+    --sale-text: hsl(var(--accent-h) 90% 68%);
   }
 }
 
@@ -50,15 +54,15 @@
   --ink-2: #c3c2b7;
   --ink-3: #898781;
   --line: #2c2c2a;
-  --accent: #3987e5;
+  --accent: hsl(var(--accent-h) 92% 60%);
   --good: #0ca30c;
   --good-text: #2fbf2f;
   --warn: #fab219;
   --warn-text: #fab219;
   --bad: #d03b3b;
   --bad-text: #e66767;
-  --sale: #3987e5;
-  --sale-text: #6da7ec;
+  --sale: hsl(var(--accent-h) 92% 60%);
+  --sale-text: hsl(var(--accent-h) 90% 68%);
 }
 
 @theme inline {
@@ -104,19 +108,6 @@ body {
 }
 
 /* Looping mockup animations. */
-@keyframes demo-blink {
-  0%,
-  100% {
-    opacity: 0.35;
-  }
-  50% {
-    opacity: 1;
-  }
-}
-.demo-blink {
-  animation: demo-blink 1.6s ease-in-out infinite;
-}
-
 @keyframes demo-thumb {
   0%,
   12% {
@@ -155,7 +146,6 @@ body {
     transform: none;
     transition: none;
   }
-  .demo-blink,
   .demo-thumb {
     animation: none;
   }

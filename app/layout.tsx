@@ -31,12 +31,13 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col">
-        {/* Apply a stored theme choice before anything paints, so a reload
-            never flashes the wrong colors. */}
+        {/* Apply a stored theme choice and roll this load's accent hue before
+            anything paints, so a reload never flashes the wrong colors. */}
         <script
           dangerouslySetInnerHTML={{
             __html:
-              'try{var t=localStorage.getItem("theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t)}catch(e){}',
+              'try{var t=localStorage.getItem("theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t)}catch(e){}' +
+              'document.documentElement.style.setProperty("--accent-h",Math.floor(Math.random()*360));',
           }}
         />
         <Providers>{children}</Providers>

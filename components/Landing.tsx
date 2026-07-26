@@ -199,6 +199,18 @@ const ICON_PATHS: Record<string, React.ReactNode> = {
   ),
   "chevron-down": <path d="m6 9 6 6 6-6" />,
   "chevron-right": <path d="m9 18 6-6-6-6" />,
+  loader: (
+    <>
+      <path d="M12 2v4" />
+      <path d="m16.2 7.8 2.9-2.9" />
+      <path d="M18 12h4" />
+      <path d="m16.2 16.2 2.9 2.9" />
+      <path d="M12 18v4" />
+      <path d="m4.9 19.1 2.9-2.9" />
+      <path d="M2 12h4" />
+      <path d="m4.9 4.9 2.9 2.9" />
+    </>
+  ),
   "between-horizontal-start": (
     <>
       <rect width="13" height="7" x="8" y="3" rx="1" />
@@ -391,34 +403,43 @@ function Features() {
           body="Drop a CSV or paste a list. Entries are validated, deduplicated, and cleaned as they load — bogus extensions are corrected against the IANA registry, with or without TLDs in the input."
           className="border-b border-line md:border-r md:pr-10"
           mockup={
-            <div className="flex h-full flex-col gap-3 font-mono text-xs leading-6">
+            <div className="flex h-full flex-col gap-3">
               <div className="flex w-fit items-center gap-2 whitespace-nowrap rounded-lg bg-ink/5 px-3 py-2">
                 <Icon name="files" className="size-4 shrink-0 text-ink" />
-                <span className="font-sans text-sm text-ink">
-                  Shortlist_Domains.csv
-                </span>
+                <span className="text-sm text-ink">Shortlist_Domains.csv</span>
                 <Icon name="x" className="size-3.5 shrink-0 text-ink-3" />
               </div>
-              <div className="space-y-0.5">
-                <div className="flex items-center justify-between gap-3">
-                  <span className="truncate text-ink-2 line-through decoration-bad/60">
-                    getwicke!d.fast;
+              <ul className="flex w-full flex-col">
+                <li className="flex items-center gap-4 px-3 py-1.5">
+                  <Icon name="loader" className="size-5 shrink-0 text-ink-3" />
+                  <p className="flex-1 truncate text-sm text-ink">
+                    getwicke<span className="text-ink-3">!</span>d.fast
+                    <span className="text-ink-3">;</span>
+                  </p>
+                  <span className="shrink-0 text-sm text-ink-3">resolving…</span>
+                </li>
+                <li className="flex items-center gap-4 px-3 py-1.5">
+                  <Icon name="loader" className="size-5 shrink-0 text-ink-3" />
+                  <p className="flex-1 truncate text-sm text-good-text">
+                    wickedfast.hub
+                  </p>
+                </li>
+                <li className="flex items-center gap-4 px-3 py-1.5">
+                  <Icon name="loader" className="size-5 shrink-0 text-ink-3" />
+                  <p className="flex-1 truncate text-sm text-ink">
+                    wickedfast.hub
+                  </p>
+                  <span className="shrink-0 text-sm text-ink-3">
+                    removing duplicate…
                   </span>
-                  <span className="demo-blink shrink-0 text-ink-3">cleaning…</span>
-                </div>
-                <div className="flex items-center justify-between gap-3">
-                  <span className="truncate text-ink-2">wickedfast.hub</span>
-                  <span className="shrink-0 text-ink-3">→ wickedfast.com</span>
-                </div>
-                <div className="flex items-center justify-between gap-3 opacity-45">
-                  <span className="truncate text-ink-2">wickedfast.com</span>
-                  <span className="shrink-0 text-ink-3">duplicate</span>
-                </div>
-                <div className="flex items-center justify-between gap-3">
-                  <span className="truncate text-ink-2">wickedfast.app</span>
-                  <span className="shrink-0 text-good-text">✓</span>
-                </div>
-              </div>
+                </li>
+                <li className="flex items-center gap-4 px-3 py-1.5">
+                  <Icon name="loader" className="size-5 shrink-0 text-ink-3" />
+                  <p className="flex-1 truncate text-sm text-bad-text">
+                    wickedfast.app
+                  </p>
+                </li>
+              </ul>
             </div>
           }
         />
