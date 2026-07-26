@@ -432,17 +432,16 @@ function Features() {
             <div className="flex h-full flex-col gap-2">
               {(
                 [
-                  ["madeyoulook.com", "bg-bad", "Lookup", "text-bad-text", 0],
-                  ["dagger.online", "bg-good", "Register", "text-good-text", 600],
-                  ["footpath.org", "bg-good", "Register", "text-good-text", 1200],
-                  ["agenda.me", "bg-sale", "$999", "text-sale-text", 1800],
-                  ["console.dev", "bg-bad", "Lookup", "text-bad-text", 2400],
+                  ["madeyoulook.com", "bg-bad", "Lookup", "text-bad-text"],
+                  ["dagger.online", "bg-good", "Register", "text-good-text"],
+                  ["footpath.org", "bg-good", "Register", "text-good-text"],
+                  ["agenda.me", "bg-sale", "$999", "text-sale-text"],
+                  ["console.dev", "bg-bad", "Lookup", "text-bad-text"],
                 ] as const
-              ).map(([name, bar, label, cls, delay]) => (
+              ).map(([name, bar, label, cls]) => (
                 <div
                   key={name}
-                  className="demo-row flex min-h-9 items-center gap-3 rounded-lg px-1"
-                  style={{ animationDelay: `${delay}ms` }}
+                  className="flex min-h-9 items-center gap-3 rounded-lg px-1"
                 >
                   <span
                     aria-hidden="true"

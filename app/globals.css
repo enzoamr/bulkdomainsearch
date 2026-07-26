@@ -104,25 +104,6 @@ body {
 }
 
 /* Looping mockup animations. */
-@keyframes demo-row-in {
-  0% {
-    opacity: 0;
-    transform: translateY(5px);
-  }
-  6%,
-  86% {
-    opacity: 1;
-    transform: none;
-  }
-  94%,
-  100% {
-    opacity: 0;
-  }
-}
-.demo-row {
-  animation: demo-row-in 9s infinite both;
-}
-
 @keyframes demo-blink {
   0%,
   100% {
@@ -174,12 +155,8 @@ body {
     transform: none;
     transition: none;
   }
-  .demo-row,
   .demo-blink,
   .demo-thumb {
     animation: none;
-  }
-  .demo-row {
-    opacity: 1;
   }
 }
