@@ -147,7 +147,9 @@ async function resolveAvailability(
     if (dohVerdict) return { status: dohVerdict, source: "doh" };
   }
 
-  return { status: "unknown", source: "dns" };
+  // Couldn't get a definitive answer — treat as taken rather than surfacing an
+  // "unknown" state, so we never show a domain as available when unsure.
+  return { status: "taken", source: "dns" };
 }
 
 /** A registered domain may still be for sale — the blue tier. */

@@ -1,4 +1,4 @@
-export type DomainStatus = "available" | "taken" | "forsale" | "unknown";
+export type DomainStatus = "available" | "taken" | "forsale";
 
 /** Where the availability answer came from, fastest to slowest tier. */
 export type CheckSource = "zone" | "dns" | "doh" | "rdap";

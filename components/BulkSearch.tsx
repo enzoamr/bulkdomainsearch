@@ -56,7 +56,6 @@ const STATUS_META: Record<
   available: { label: "Available", dotClass: "bg-good", textClass: "text-good-text" },
   forsale: { label: "For sale", dotClass: "bg-sale", textClass: "text-sale-text" },
   taken: { label: "Taken", dotClass: "bg-bad", textClass: "text-bad-text" },
-  unknown: { label: "Unknown", dotClass: "bg-warn", textClass: "text-warn-text" },
 };
 
 export default function BulkSearch() {
@@ -249,7 +248,7 @@ export default function BulkSearch() {
   }, []);
 
   const counts = useMemo(() => {
-    const c = { available: 0, forsale: 0, taken: 0, unknown: 0 };
+    const c = { available: 0, forsale: 0, taken: 0 };
     for (const r of results.values()) c[r.status]++;
     return c;
   }, [results]);
@@ -448,7 +447,7 @@ export default function BulkSearch() {
 
       {/* Stat tiles */}
       {results.size > 0 && (
-        <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+        <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
           <StatTile
             label="Total"
             value={results.size}
@@ -475,13 +474,6 @@ export default function BulkSearch() {
             dotClass="bg-bad"
             active={filter === "taken"}
             onClick={() => setFilter("taken")}
-          />
-          <StatTile
-            label="Unknown"
-            value={counts.unknown}
-            dotClass="bg-warn"
-            active={filter === "unknown"}
-            onClick={() => setFilter("unknown")}
           />
         </div>
       )}
@@ -568,9 +560,7 @@ function DomainChip({
         ? "bg-sale text-white"
         : status === "taken"
           ? "bg-bad text-white"
-          : status === "unknown"
-            ? "bg-warn text-[#3a2a00]"
-            : "border border-line bg-transparent text-ink-2 animate-pulse";
+          : "border border-line bg-transparent text-ink-2 animate-pulse";
   const href =
     status === "available"
       ? buyUrl(REGISTRARS[0], domain)
@@ -794,7 +784,7 @@ function ResultRow({
         </span>
       )}
 
-      {!isConfirmed && (result.status === "available" || result.status === "unknown") && (
+      {!isConfirmed && result.status === "available" && (
         <button
           onClick={onVerify}
           disabled={verifying}

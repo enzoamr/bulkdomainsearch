@@ -23,10 +23,10 @@ export async function rdapCheck(domain: string): Promise<DomainStatus> {
       redirect: "follow",
       cache: "no-store",
     });
-    if (res.status === 404) return "available";
-    if (res.ok) return "taken";
-    return "unknown";
+    // 404 = not registered; anything else (registered, or an error we can't
+    // interpret) is treated as taken so we never falsely claim availability.
+    return res.status === 404 ? "available" : "taken";
   } catch {
-    return "unknown";
+    return "taken";
   }
 }
