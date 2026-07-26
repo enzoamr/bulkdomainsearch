@@ -92,7 +92,6 @@ export default function BulkSearch() {
   const [sortBy, setSortBy] = useState<SortBy>("order");
   const [query, setQuery] = useState("");
   const [showAll, setShowAll] = useState(false);
-  const [verifying, setVerifying] = useState<Set<string>>(new Set());
   const [copied, setCopied] = useState(false);
   const [view, setView] = useState<"compose" | "results">("compose");
   const [tldFilter, setTldFilter] = useState<Set<string>>(new Set());
@@ -260,28 +259,6 @@ export default function BulkSearch() {
     },
     [addDomains],
   );
-
-  const verify = useCallback(async (domain: string) => {
-    setVerifying((prev) => new Set(prev).add(domain));
-    track("verify_clicked", { domain });
-    try {
-      const res = await fetch(`/api/verify?domain=${encodeURIComponent(domain)}`);
-      if (res.ok) {
-        const confirmed = (await res.json()) as CheckResult;
-        setResults((prev) => {
-          const next = new Map(prev);
-          next.set(domain, confirmed);
-          return next;
-        });
-      }
-    } finally {
-      setVerifying((prev) => {
-        const next = new Set(prev);
-        next.delete(domain);
-        return next;
-      });
-    }
-  }, []);
 
   const counts = useMemo(() => {
     const c = { available: 0, forsale: 0, taken: 0 };
@@ -813,12 +790,7 @@ export default function BulkSearch() {
 
             <div className="mt-4 grid grid-cols-1 gap-x-10 lg:grid-cols-2">
               {shown.map((r) => (
-                <ResultLine
-                  key={r.domain}
-                  result={r}
-                  verifying={verifying.has(r.domain)}
-                  onVerify={() => verify(r.domain)}
-                />
+                <ResultLine key={r.domain} result={r} />
               ))}
               {shownPending.map((d) => (
                 <PendingLine key={d} domain={d} />
@@ -1162,18 +1134,9 @@ function PendingLine({ domain }: { domain: string }) {
   );
 }
 
-function ResultLine({
-  result,
-  verifying,
-  onVerify,
-}: {
-  result: CheckResult;
-  verifying: boolean;
-  onVerify: () => void;
-}) {
+function ResultLine({ result }: { result: CheckResult }) {
   const isAvailable = result.status === "available";
   const listing = result.status === "forsale" ? result.listing : undefined;
-  const isConfirmed = result.source === "rdap";
 
   const bar = isAvailable ? "bg-good" : listing ? "bg-sale" : "bg-bad";
   const href = isAvailable
@@ -1223,23 +1186,8 @@ function ResultLine({
               : "text-red-400"
         }`}
       >
-        {isAvailable
-          ? `Register${isConfirmed ? " ✓" : ""}`
-          : listing
-            ? formatPrice(listing)
-            : "Lookup"}
+        {isAvailable ? "Register" : listing ? formatPrice(listing) : "Lookup"}
       </a>
-
-      {isAvailable && !isConfirmed && (
-        <button
-          onClick={onVerify}
-          disabled={verifying}
-          title="Confirm against the registry via RDAP"
-          className="shrink-0 rounded border border-white/15 px-2 py-0.5 text-xs text-white/60 hover:bg-white/10 disabled:opacity-50"
-        >
-          {verifying ? "…" : "Verify"}
-        </button>
-      )}
     </div>
   );
 }
