@@ -881,7 +881,7 @@ export default function BulkSearch() {
             className="h-8 min-w-48 flex-1 bg-transparent font-mono text-sm text-ink outline-none placeholder:text-ink-3"
           />
         </div>
-        <div className="flex flex-wrap items-center gap-2 border-t border-line px-3 py-2.5">
+        <div className="flex flex-wrap items-center gap-2 px-3 py-2.5">
           {hiddenInput}
           <button
             onClick={() => fileRef.current?.click()}
@@ -898,8 +898,21 @@ export default function BulkSearch() {
           {domains.length > 0 && (
             <button
               onClick={clearAll}
-              className="rounded-lg px-3 py-1.5 text-sm text-ink-3 hover:text-ink-2"
+              className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm text-ink-3 hover:text-ink-2"
             >
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                aria-hidden="true"
+              >
+                <path d="M18 6 6 18" />
+                <path d="m6 6 12 12" />
+              </svg>
               Clear
             </button>
           )}
@@ -920,7 +933,7 @@ export default function BulkSearch() {
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
-              strokeWidth="2.5"
+              strokeWidth="1.75"
               strokeLinecap="round"
               strokeLinejoin="round"
               aria-hidden="true"
