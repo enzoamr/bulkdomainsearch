@@ -4,8 +4,8 @@
   color-scheme: light;
   /* Accent hue: randomized before paint by an inline script in the layout —
      a new neon color on every load. Everything accent- or sale-colored
-     derives from this one variable. */
-  --accent-h: 212;
+     derives from this one variable. Fallback (scripts disabled): orange. */
+  --accent-h: 24;
   --background: #f9f9f7;
   --surface: #fcfcfb;
   --ink: #0b0b0b;
