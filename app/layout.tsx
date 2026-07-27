@@ -33,15 +33,19 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col">
         {/* Apply a stored theme choice and roll this load's accent hue before
             anything paints, so a reload never flashes the wrong colors. The
-            hue goes into an appended <style> node, not an attribute — React
-            wipes unexpected attributes from <html> when it hydrates, but
-            leaves foreign head nodes alone. */}
+            hue is drawn only from segments far enough from the three status
+            hues — red ~0°, green ~120°, blue ~213° (±25°) — so the accent
+            never reads as an availability color. It goes into an appended
+            <style> node, not an attribute — React wipes unexpected attributes
+            from <html> when it hydrates, but leaves foreign head nodes
+            alone. */}
         <script
           dangerouslySetInnerHTML={{
             __html:
               'try{var t=localStorage.getItem("theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t)}catch(e){}' +
-              'var h=Math.floor(Math.random()*360),s=document.createElement("style");' +
-              's.textContent=":root{--accent-h:"+h+"}";document.head.appendChild(s);',
+              'var seg=[[25,95],[145,188],[238,335]],tot=0,i;for(i=0;i<3;i++)tot+=seg[i][1]-seg[i][0];' +
+              'var r=Math.random()*tot,h=30;for(i=0;i<3;i++){var w=seg[i][1]-seg[i][0];if(r<w){h=Math.round(seg[i][0]+r);break}r-=w}' +
+              'var s=document.createElement("style");s.textContent=":root{--accent-h:"+h+"}";document.head.appendChild(s);',
           }}
         />
         <Providers>{children}</Providers>
