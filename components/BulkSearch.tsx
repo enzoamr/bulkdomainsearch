@@ -1001,6 +1001,9 @@ export default function BulkSearch() {
             </button>
           )}
           </div>
+          {/* Bottom-right anchor: when the left buttons wrap to two lines,
+              the counter and arrow stick to the bottom edge, not the middle. */}
+          <div className="flex shrink-0 items-center gap-2 self-end">
           <span className="shrink-0 text-xs tabular-nums text-ink-3">
             {domains.length.toLocaleString()} / {MAX_DOMAINS.toLocaleString()}
           </span>
@@ -1026,6 +1029,7 @@ export default function BulkSearch() {
               <path d="m12 5 7 7-7 7" />
             </svg>
           </button>
+          </div>
         </div>
       </div>
 
