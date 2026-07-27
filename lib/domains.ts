@@ -18,6 +18,24 @@ export const EXPANDABLE_TLDS = [
 const LABEL_RE = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
 
 /**
+ * ccTLDs whose registries do not sell names at the second level — you
+ * register under a public suffix instead (bluegrid.za is impossible to buy;
+ * bluegrid.co.za is the real product). DNS answers NXDOMAIN for the bare
+ * form, which would otherwise read as "available". Curated, not exhaustive.
+ */
+export const SECOND_LEVEL_CLOSED: ReadonlySet<string> = new Set([
+  "za",
+  "th",
+  "np",
+  "pg",
+  "kh",
+  "bn",
+  "mm",
+  "bd",
+  "ck",
+]);
+
+/**
  * Normalize a pasted token into a bare name or domain: lowercases, strips
  * scheme/path/query/port, leading "www." and trailing dots. Returns null for
  * tokens that cannot become a domain.
@@ -41,7 +59,12 @@ export function isValidDomain(domain: string): boolean {
   if (!labels.every((l) => LABEL_RE.test(l))) return false;
   // The extension must be a real, IANA-listed TLD — otherwise a bogus one
   // (e.g. "enzo.dsahdsa") sails through DNS as NXDOMAIN and looks available.
-  return isValidTld(labels[labels.length - 1]);
+  const tld = labels[labels.length - 1];
+  if (!isValidTld(tld)) return false;
+  // A two-label name under a closed-second-level registry can't be bought,
+  // so it must never be checked (NXDOMAIN would fake an "available").
+  if (labels.length === 2 && SECOND_LEVEL_CLOSED.has(tld)) return false;
+  return true;
 }
 
 /**
