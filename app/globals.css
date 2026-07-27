@@ -108,25 +108,6 @@ body {
   transform: none;
 }
 
-/* Looping mockup animations. */
-@keyframes demo-thumb {
-  0%,
-  12% {
-    left: 10%;
-  }
-  48%,
-  62% {
-    left: 64%;
-  }
-  92%,
-  100% {
-    left: 10%;
-  }
-}
-.demo-thumb {
-  animation: demo-thumb 7s ease-in-out infinite;
-}
-
 /* White-on-transparent logos need inverting on light backgrounds; follows
    the same theme resolution as the tokens (data-theme wins over system). */
 .logo-invert {
@@ -146,8 +127,5 @@ body {
     opacity: 1;
     transform: none;
     transition: none;
-  }
-  .demo-thumb {
-    animation: none;
   }
 }

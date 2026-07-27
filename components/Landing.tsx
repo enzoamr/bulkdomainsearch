@@ -260,6 +260,85 @@ function Icon({ name, className }: { name: string; className?: string }) {
 
 /* ————— scaffolding ————— */
 
+/**
+ * The little price slider in the filtering mockup. Driven by rAF instead of
+ * CSS keyframes so the filled bar and the Min label track the moving thumb
+ * exactly: the thumb glides between 10% and 64%, the fill's left edge rides
+ * along, and the label counts the corresponding log-scale price (20 → 50M).
+ */
+function FilterMockSlider() {
+  const barRef = useRef<HTMLDivElement | null>(null);
+  const thumbRef = useRef<HTMLSpanElement | null>(null);
+  const minRef = useRef<HTMLSpanElement | null>(null);
+
+  useEffect(() => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const LO = 10; // resting thumb position, %
+    const HI = 64; // far thumb position, %
+    const RIGHT = 88; // static max thumb position, % (right-[12%])
+    const PMIN = 20;
+    const PMAX = 50_000_000;
+    const ease = (x: number) => 0.5 - Math.cos(Math.PI * x) / 2;
+    const fmt = (v: number) => {
+      const mag = 10 ** Math.max(0, Math.floor(Math.log10(v)) - 1);
+      const r = Math.round(v / mag) * mag;
+      const trim = (n: number) =>
+        Number.isInteger(n) ? String(n) : n.toFixed(1).replace(/\.0$/, "");
+      if (r >= 1_000_000) return `${trim(r / 1_000_000)}M`;
+      if (r >= 1_000) return `${trim(r / 1_000)}K`;
+      return String(r);
+    };
+
+    let raf = 0;
+    const started = performance.now();
+    const tick = (now: number) => {
+      // 7s loop: rest, glide out, rest, glide back, rest.
+      const t = ((now - started) % 7000) / 7000;
+      let f = 0;
+      if (t < 0.12) f = 0;
+      else if (t < 0.48) f = ease((t - 0.12) / 0.36);
+      else if (t < 0.62) f = 1;
+      else if (t < 0.92) f = 1 - ease((t - 0.62) / 0.3);
+      const left = LO + (HI - LO) * f;
+      if (thumbRef.current) thumbRef.current.style.left = `${left}%`;
+      if (barRef.current) barRef.current.style.left = `${left}%`;
+      if (minRef.current) {
+        const frac = (left - LO) / (RIGHT - LO);
+        const price = Math.exp(
+          Math.log(PMIN) + frac * (Math.log(PMAX) - Math.log(PMIN)),
+        );
+        minRef.current.textContent = `Min: ${fmt(price)}`;
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, []);
+
+  return (
+    <div className="mt-5">
+      <div className="relative h-4">
+        <div className="absolute inset-x-0 top-1/2 h-1 -translate-y-1/2 rounded-full bg-line" />
+        <div
+          ref={barRef}
+          className="absolute right-[12%] top-1/2 h-1 -translate-y-1/2 rounded-full bg-accent"
+          style={{ left: "10%" }}
+        />
+        <span
+          ref={thumbRef}
+          className="absolute top-1/2 h-3.5 w-3.5 -translate-y-1/2 rounded-full bg-ink shadow-[0_0_0_2px_var(--surface)]"
+          style={{ left: "10%" }}
+        />
+        <span className="absolute right-[12%] top-1/2 h-3.5 w-3.5 -translate-y-1/2 rounded-full bg-ink shadow-[0_0_0_2px_var(--surface)]" />
+      </div>
+      <div className="mt-1.5 flex justify-between text-[11px] text-ink-3">
+        <span ref={minRef}>Min: 20</span>
+        <span>Max: 50M</span>
+      </div>
+    </div>
+  );
+}
+
 function SectionHeader({
   eyebrow,
   title,
@@ -504,18 +583,7 @@ function Features() {
                   .app
                 </span>
               </div>
-              <div className="mt-5">
-                <div className="relative h-4">
-                  <div className="absolute inset-x-0 top-1/2 h-1 -translate-y-1/2 rounded-full bg-line" />
-                  <div className="absolute left-[10%] right-[12%] top-1/2 h-1 -translate-y-1/2 rounded-full bg-accent" />
-                  <span className="demo-thumb absolute top-1/2 h-3.5 w-3.5 -translate-y-1/2 rounded-full bg-ink shadow-[0_0_0_2px_var(--surface)]" />
-                  <span className="absolute right-[12%] top-1/2 h-3.5 w-3.5 -translate-y-1/2 rounded-full bg-ink shadow-[0_0_0_2px_var(--surface)]" />
-                </div>
-                <div className="mt-1.5 flex justify-between text-[11px] text-ink-3">
-                  <span>Min: 20</span>
-                  <span>Max: 50M</span>
-                </div>
-              </div>
+              <FilterMockSlider />
             </div>
           }
         />
