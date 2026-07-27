@@ -1,5 +1,6 @@
 import BulkSearch from "@/components/BulkSearch";
 import Landing from "@/components/Landing";
+import Logo from "@/components/Logo";
 import ThemeToggle from "@/components/ThemeToggle";
 
 export default function Home() {
@@ -7,8 +8,11 @@ export default function Home() {
     <div className="flex min-h-screen flex-col">
       <header className="border-b border-line">
         <div className="mx-auto flex w-full max-w-4xl items-center justify-between px-4 py-3.5">
-          <span className="text-sm font-semibold tracking-tight">
-            bulk<span className="text-accent">domain</span>search
+          <span className="flex items-center gap-2 text-sm font-semibold tracking-tight">
+            <Logo />
+            <span>
+              bulk<span className="text-accent">domain</span>search
+            </span>
           </span>
           <div className="flex items-center gap-4">
             <span className="hidden text-xs text-ink-3 sm:block">
