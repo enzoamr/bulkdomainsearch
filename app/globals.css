@@ -19,8 +19,9 @@
   --warn-text: #7a5200;
   --bad: #d03b3b;
   --bad-text: #a32626;
-  --sale: hsl(var(--accent-h) 95% 45%);
-  --sale-text: hsl(var(--accent-h) 90% 38%);
+  /* The for-sale tier stays blue regardless of the rolled accent hue. */
+  --sale: #2a78d6;
+  --sale-text: #1c5cab;
 }
 
 /* System preference applies unless the user picked a theme explicitly
@@ -41,8 +42,8 @@
     --warn-text: #fab219;
     --bad: #d03b3b;
     --bad-text: #e66767;
-    --sale: hsl(var(--accent-h) 92% 60%);
-    --sale-text: hsl(var(--accent-h) 90% 68%);
+    --sale: #3987e5;
+    --sale-text: #6da7ec;
   }
 }
 
@@ -61,8 +62,8 @@
   --warn-text: #fab219;
   --bad: #d03b3b;
   --bad-text: #e66767;
-  --sale: hsl(var(--accent-h) 92% 60%);
-  --sale-text: hsl(var(--accent-h) 90% 68%);
+  --sale: #3987e5;
+  --sale-text: #6da7ec;
 }
 
 @theme inline {
