@@ -107,7 +107,16 @@ export function parseInput(input: string, expandTlds: readonly string[]): string
       expand(norm);
     } else if (isValidTld(norm.slice(dot + 1))) {
       // Real extension — keep the domain as typed.
-      if (isValidDomain(norm)) out.add(norm);
+      if (isValidDomain(norm)) {
+        out.add(norm);
+      } else if (
+        norm.indexOf(".") === dot &&
+        SECOND_LEVEL_CLOSED.has(norm.slice(dot + 1))
+      ) {
+        // name.za: real TLD but unbuyable at the second level — treat the
+        // part before the dot as a bare keyword, like a bogus extension.
+        expand(norm.slice(0, dot));
+      }
     } else {
       // Bogus extension (e.g. "enzo.dsahdsa"): treat the part before it as a
       // bare name and expand it, so it never gets checked as a real domain.

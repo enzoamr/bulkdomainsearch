@@ -1,3 +1,4 @@
+import { checkDomain } from "@/lib/dns";
 import { isValidDomain } from "@/lib/domains";
 import { rdapCheck } from "@/lib/rdap";
 import type { CheckResult } from "@/lib/types";
@@ -13,11 +14,10 @@ export async function GET(req: Request) {
   }
   const started = Date.now();
   const status = await rdapCheck(domain);
-  const result: CheckResult = {
-    domain,
-    status,
-    source: "rdap",
-    ms: Date.now() - started,
-  };
+  // No RDAP service (or no verdict) for this TLD: fall back to a full check
+  // rather than fabricating a registry answer.
+  const result: CheckResult = status
+    ? { domain, status, source: "rdap", ms: Date.now() - started }
+    : await checkDomain(domain);
   return Response.json(result, { headers: { "cache-control": "no-store" } });
 }

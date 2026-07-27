@@ -2,6 +2,7 @@ import { Resolver } from "node:dns/promises";
 
 import { lookupListing } from "./aftermarket-store";
 import { splitRegistrable } from "./domains";
+import { rdapCheck } from "./rdap";
 import { sedoLookup } from "./sedo";
 import { zoneLookup } from "./zone-index";
 import type { CheckResult, CheckSource, DomainStatus, Listing } from "./types";
@@ -129,7 +130,7 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 /** Resolve raw availability through the zone → DNS → DoH tiers. */
 async function resolveAvailability(
   domain: string,
-): Promise<{ status: DomainStatus; source: CheckSource }> {
+): Promise<{ status: DomainStatus; source: CheckSource; unsure?: boolean }> {
   const { sld, tld } = splitRegistrable(domain);
 
   const zoneVerdict = await zoneLookup(sld, tld);
@@ -147,9 +148,9 @@ async function resolveAvailability(
     if (dohVerdict) return { status: dohVerdict, source: "doh" };
   }
 
-  // Couldn't get a definitive answer — treat as taken rather than surfacing an
-  // "unknown" state, so we never show a domain as available when unsure.
-  return { status: "taken", source: "dns" };
+  // Couldn't get a definitive answer — lean taken rather than surface an
+  // "unknown" state; the unsure flag lets the caller ask the registry.
+  return { status: "taken", source: "dns", unsure: true };
 }
 
 /** A registered domain may still be for sale — the blue tier. */
@@ -161,7 +162,21 @@ async function findListing(domain: string): Promise<Listing | null> {
 
 export async function checkDomain(domain: string): Promise<CheckResult> {
   const started = Date.now();
-  const { status, source } = await resolveAvailability(domain);
+  const verdict = await resolveAvailability(domain);
+  let { status, source } = verdict;
+
+  // Registry confirmation at the decisive moment. DNS tests delegation, not
+  // registration: a registered-but-undelegated name NXDOMAINs (false
+  // "available"), and the unsure fallback can bury a genuinely free name as
+  // taken. Zone-file answers can also lag a day behind the registry. RDAP
+  // settles all three whenever the TLD operates a service.
+  if (status === "available" || verdict.unsure) {
+    const confirmed = await rdapCheck(domain);
+    if (confirmed) {
+      status = confirmed;
+      source = "rdap";
+    }
+  }
 
   if (status === "taken") {
     const listing = await findListing(domain);
