@@ -931,11 +931,14 @@ export default function BulkSearch() {
             autoCapitalize="none"
             spellCheck={false}
             enterKeyHint="search"
-            className="h-8 min-w-48 flex-1 bg-transparent font-mono text-sm text-ink outline-none placeholder:text-ink-3"
+            className="h-8 min-w-48 flex-1 bg-transparent font-mono text-base text-ink outline-none placeholder:text-ink-3 sm:text-sm"
           />
         </div>
-        <div className="flex flex-wrap items-center gap-2 px-3 py-2.5">
+        <div className="flex items-center gap-2 px-3 py-2.5">
           {hiddenInput}
+          {/* Left buttons may wrap on narrow screens; the counter and arrow
+              stay pinned to the right edge of the row. */}
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
           <button
             onClick={() => fileRef.current?.click()}
             className="inline-flex items-center gap-1.5 rounded-lg border border-line px-3 py-1.5 text-sm text-ink-2 hover:border-ink-3"
@@ -997,8 +1000,8 @@ export default function BulkSearch() {
               Clear
             </button>
           )}
-          <div className="flex-1" />
-          <span className="text-xs tabular-nums text-ink-3">
+          </div>
+          <span className="shrink-0 text-xs tabular-nums text-ink-3">
             {domains.length.toLocaleString()} / {MAX_DOMAINS.toLocaleString()}
           </span>
           <button
