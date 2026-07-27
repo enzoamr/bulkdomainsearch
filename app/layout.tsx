@@ -32,12 +32,16 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col">
         {/* Apply a stored theme choice and roll this load's accent hue before
-            anything paints, so a reload never flashes the wrong colors. */}
+            anything paints, so a reload never flashes the wrong colors. The
+            hue goes into an appended <style> node, not an attribute — React
+            wipes unexpected attributes from <html> when it hydrates, but
+            leaves foreign head nodes alone. */}
         <script
           dangerouslySetInnerHTML={{
             __html:
               'try{var t=localStorage.getItem("theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t)}catch(e){}' +
-              'document.documentElement.style.setProperty("--accent-h",Math.floor(Math.random()*360));',
+              'var h=Math.floor(Math.random()*360),s=document.createElement("style");' +
+              's.textContent=":root{--accent-h:"+h+"}";document.head.appendChild(s);',
           }}
         />
         <Providers>{children}</Providers>
